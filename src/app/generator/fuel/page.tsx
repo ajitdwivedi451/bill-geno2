@@ -1,7 +1,7 @@
 'use client';
 
-import FuelForm from '@/components/generator/FuelForm';
-import FuelPreview from '@/components/generator/FuelPreview';
+import {FuelForm} from '@/components/FuelForm';
+import {FuelPreview} from '@/components/FuelPreview';
 
 export default function FuelGeneratorPage() {
   return (

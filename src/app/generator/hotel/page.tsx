@@ -1,7 +1,7 @@
 'use client';
 
-import HotelForm from '@/components/generator/HotelForm';
-import HotelPreview from '@/components/generator/HotelPreview';
+import HotelForm from '@/components/HotelForm';
+import HotelPreview from '@/components/HotelPreview';
 
 export default function HotelGeneratorPage() {
   return (

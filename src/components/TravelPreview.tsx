@@ -1,8 +1,8 @@
 'use client';
 
-import { useRef, useState } from 'react';
-import { useTravelStore } from '@/store/useBillStore';
-import { Download, FileImage, Share2, FileText, Image as ImageIcon } from 'lucide-react';
+import { useRef, useState, useEffect } from 'react';
+import { useTravelStore } from '@/store/useTravelStore'; // 🟢 Path Updated
+import { Download, FileImage, Share2, FileText, Image as ImageIcon, Printer, ArrowLeft } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { jsPDF } from 'jspdf';
 
@@ -25,6 +25,9 @@ export default function TravelPreview() {
   const store = useTravelStore();
   const printRef = useRef<HTMLDivElement>(null);
   const [showShareMenu, setShowShareMenu] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => setIsMounted(true), []);
 
   const baseFare = store.totalKm * store.ratePerKm;
   const subTotal = baseFare + store.tollsParking + store.driverAllowance + store.otherCharges;
@@ -50,23 +53,31 @@ export default function TravelPreview() {
     pdf.addImage(dataUrl, 'PNG', 0, 0, w, h); pdf.save(`Trip_${store.invoiceNo}.pdf`);
   };
 
-  // 🟢 NAYA: Magic Share Function (Directly shares file to WhatsApp/Other apps)
+  // 🟢 NAYA: Print Function
+  const handlePrint = async () => {
+    if (!printRef.current) return;
+    try {
+      const dataUrl = await toPng(printRef.current, { backgroundColor: '#ffffff', pixelRatio: 2 });
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) return;
+      printWindow.document.write(`<html><head><style>body{margin:0;display:flex;justify-content:center;background:white;}img{width:100%;max-width:794px;height:auto;}@page{margin:0;size:auto;}</style></head><body><img src="${dataUrl}" onload="setTimeout(()=>{window.print();window.close();},250);" /></body></html>`);
+      printWindow.document.close();
+    } catch (err) { console.error(err); }
+  };
+
   const shareFile = async (type: 'png' | 'pdf') => {
     if (!printRef.current) return;
-    setShowShareMenu(false); // Close menu
+    setShowShareMenu(false);
 
     try {
       let file: File;
       const fileName = `Invoice_${store.invoiceNo}.${type}`;
-      
-      // 1. Generate Image Data
       const dataUrl = await toPng(printRef.current, { backgroundColor: '#ffffff', pixelRatio: 2 });
       
       if (type === 'png') {
         const blob = await (await fetch(dataUrl)).blob();
         file = new File([blob], fileName, { type: 'image/png' });
       } else {
-        // Generate PDF Data
         const pdf = new jsPDF({ format: 'a4', unit: 'px' });
         const w = pdf.internal.pageSize.getWidth();
         const h = (printRef.current.offsetHeight * w) / printRef.current.offsetWidth;
@@ -75,7 +86,6 @@ export default function TravelPreview() {
         file = new File([pdfBlob], fileName, { type: 'application/pdf' });
       }
 
-      // 2. Check if device supports sharing files
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           title: `Invoice ${store.invoiceNo}`,
@@ -83,16 +93,12 @@ export default function TravelPreview() {
           files: [file]
         });
       } else {
-        // Fallback for older browsers / Desktop PCs without share support
         alert("Your browser does not support direct file sharing. The file will be downloaded instead, you can attach it manually on WhatsApp.");
         type === 'png' ? downloadPNG() : downloadPDF();
       }
-    } catch (error) {
-      console.error("Error sharing:", error);
-    }
+    } catch (error) { console.error("Error sharing:", error); }
   };
 
-  // --- REUSABLE BLOCKS ---
   const SignatureBlock = () => {
     if (!store.showSignature) return null;
     return (
@@ -422,35 +428,43 @@ export default function TravelPreview() {
     }
   };
 
+  if (!isMounted) return null;
+
   return (
     <div className="flex flex-col items-center">
-      <div className="flex gap-4 w-full mb-4 justify-end relative">
-        
-        {/* 🟢 Share Menu Button */}
-        <div className="relative">
-          <button 
-            onClick={() => setShowShareMenu(!showShareMenu)} 
-            className="flex items-center gap-2 bg-green-500 text-white px-4 py-2 rounded shadow hover:bg-green-600 transition"
-          >
-            <Share2 size={18} /> Share
-          </button>
-          
-          {/* Dropdown Menu */}
-          {showShareMenu && (
-            <div className="absolute top-12 right-0 bg-white border border-slate-200 shadow-xl rounded-lg w-48 py-2 z-50 animate-in fade-in zoom-in duration-200">
-              <p className="text-xs font-bold text-slate-400 px-4 mb-2 uppercase">Share directly to app</p>
-              <button onClick={() => shareFile('pdf')} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 text-sm font-medium">
-                <FileText size={16} className="text-red-500" /> Share as PDF
-              </button>
-              <button onClick={() => shareFile('png')} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 text-sm font-medium">
-                <ImageIcon size={16} className="text-indigo-500" /> Share as Image
-              </button>
-            </div>
-          )}
-        </div>
+      
+      {/* 🟢 Premium Desktop Action Bar (Like Fuel & Hotel) */}
+      <div className="flex justify-between items-center w-full max-w-[400px] mx-auto mb-6 bg-slate-900 text-white p-3 rounded-xl shadow-lg border border-slate-800">
+        <button 
+          onClick={() => window.history.back()} 
+          className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg text-sm font-medium transition active:scale-95"
+        >
+          <ArrowLeft size={16} /> Back
+        </button>
 
-        <button onClick={downloadPNG} className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded shadow hover:bg-indigo-700 transition"><FileImage size={18} /> PNG</button>
-        <button onClick={downloadPDF} className="flex items-center gap-2 bg-slate-800 text-white px-4 py-2 rounded shadow hover:bg-slate-900 transition"><Download size={18} /> PDF</button>
+        <div className="flex gap-2 relative">
+          {/* Share Dropdown */}
+          <div className="relative">
+            <button onClick={() => setShowShareMenu(!showShareMenu)} className="flex items-center gap-1.5 bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition shadow-md">
+              <Share2 size={16} /> Share
+            </button>
+            {showShareMenu && (
+              <div className="absolute top-12 right-0 bg-white border border-slate-200 shadow-xl rounded-lg w-48 py-2 z-50 animate-in fade-in zoom-in duration-200">
+                <p className="text-xs font-bold text-slate-400 px-4 mb-2 uppercase">Share directly to app</p>
+                <button onClick={() => shareFile('pdf')} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 text-sm font-medium text-slate-700">
+                  <FileText size={16} className="text-red-500" /> Share as PDF
+                </button>
+                <button onClick={() => shareFile('png')} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 text-sm font-medium text-slate-700">
+                  <ImageIcon size={16} className="text-indigo-500" /> Share as Image
+                </button>
+              </div>
+            )}
+          </div>
+
+          <button onClick={handlePrint} className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition active:scale-95 shadow-md"><Printer size={16} /></button>
+          <button onClick={downloadPNG} className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition active:scale-95 shadow-md"><FileImage size={16} /></button>
+          <button onClick={downloadPDF} className="flex items-center gap-1.5 bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition active:scale-95 shadow-md"><Download size={16} /></button>
+        </div>
       </div>
 
       <div className="bg-white shadow-2xl w-full max-w-[750px] mx-auto overflow-hidden border border-slate-200" style={{ height: '1000px' }}>

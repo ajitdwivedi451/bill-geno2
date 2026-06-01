@@ -1,51 +1,107 @@
 'use client';
 
-import { useState } from 'react';
-import { useTravelStore } from '@/store/useBillStore';
-import { RefreshCw, CarFront, UserPlus } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { useTravelStore } from '@/store/useTravelStore'; // 🟢 Store Path
+import { usePOSShortcuts } from '@/hooks/usePOSShortcuts'; // 🟢 Shortcuts
+import { RefreshCw, CarFront, UserPlus, Save, Trash2, Printer, Scan, CheckCircle2 } from 'lucide-react';
 
 export default function TravelForm() {
   const store = useTravelStore();
   const [toastMsg, setToastMsg] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const workerRef = useRef<Worker | null>(null);
+
+  // Calculate Grand Total for History
+  const baseFare = store.totalKm * store.ratePerKm;
+  const subTotal = baseFare + store.tollsParking + store.driverAllowance + store.otherCharges;
+  const taxAmount = store.hasTax ? (subTotal * store.taxRate) / 100 : 0;
+  const grandTotal = subTotal + taxAmount - store.discount;
+
+  // 🟢 Web Worker Setup
+  useEffect(() => {
+    workerRef.current = new Worker(new URL('../workers/imageProcessor.worker.ts', import.meta.url));
+    return () => workerRef.current?.terminate();
+  }, []);
+
+  const showToast = (msg: string) => { setToastMsg(msg); setTimeout(() => setToastMsg(''), 4000); };
+
+  // 🟢 Keyboard Shortcuts
+  usePOSShortcuts([
+    { key: 'n', altKey: true, action: () => { store.startNewBill(); showToast("New Trip Generated! (Alt+N)"); } },
+    { key: 's', ctrlKey: true, action: () => {
+        const saved = store.saveBillToHistory(grandTotal);
+        if (saved) showToast("Bill Saved to Memory! (Ctrl+S)");
+        else window.alert("⚠️ Duplicate bill cannot be saved!");
+    }},
+    { key: 'p', ctrlKey: true, action: () => window.print() }
+  ]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, field: 'logo' | 'signature') => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => store.setField(field, reader.result);
+      reader.onloadend = () => store.setField(field, reader.result as string);
       reader.readAsDataURL(file);
     }
   };
 
+  // 🟢 Non-Blocking Worker Image Processor
+  const handleBgRemoval = (field: 'logo' | 'signature') => {
+    const imgSrc = field === 'logo' ? store.logo : store.signature;
+    if (!imgSrc || !workerRef.current) return;
+    if (imgSrc.includes('image/svg+xml')) return alert("SVG images are already transparent.");
+
+    setIsProcessing(true);
+    const img = new window.Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width; canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.drawImage(img, 0, 0);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      
+      workerRef.current!.postMessage({ imageData, type: field });
+      
+      workerRef.current!.onmessage = (e) => {
+        const { processedData, type: returnedType } = e.data;
+        ctx.putImageData(processedData, 0, 0);
+        const newImage = canvas.toDataURL('image/png');
+        store.setField(returnedType as any, newImage);
+        setIsProcessing(false);
+        showToast("White background removed!");
+      };
+    };
+    img.src = imgSrc;
+  };
+
   const handleNewTrip = () => {
     store.startNewBill();
-    setToastMsg('New Trip: Invoice, Date & Time updated. (Customer retained)');
-    setTimeout(() => setToastMsg(''), 4000);
+    showToast('New Trip: Invoice, Date & Time updated. (Customer retained)');
   };
 
   const handleNewCustomer = () => {
     store.startNewCustomer();
-    setToastMsg('New Customer: All guest details cleared & Invoice updated.');
-    setTimeout(() => setToastMsg(''), 4000);
+    showToast('New Customer: All guest details cleared & Invoice updated.');
   };
 
   return (
     <div className="space-y-6 text-sm pb-10 relative">
       
-      {/* 🟢 Floating Toast Message */}
+      {/* Floating Toast Message */}
       {toastMsg && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full shadow-2xl z-50 animate-in fade-in slide-in-from-top-4 text-sm font-bold flex items-center gap-2 border border-slate-600">
-           ✅ {toastMsg}
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-4 py-2 rounded-full shadow-2xl z-50 flex items-center gap-2 text-sm font-bold border border-slate-700">
+          <CheckCircle2 size={16} className="text-emerald-400" /> {toastMsg}
         </div>
       )}
 
-      <div className="flex justify-between items-center bg-yellow-50 p-4 rounded-xl border border-yellow-200 shadow-inner">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-yellow-50 p-4 rounded-xl border border-yellow-200 shadow-inner gap-4">
         <div>
           <h2 className="text-lg font-bold text-yellow-900 flex items-center gap-2"><CarFront size={20}/> Bill Actions</h2>
-          <p className="text-xs text-yellow-700">Choose action based on regular or new client.</p>
+          <p className="text-xs text-yellow-700">Choose action based on regular or new client. <span className="font-mono bg-white px-1 rounded text-slate-800">(Alt+N for New, Ctrl+S to Save)</span></p>
         </div>
         <div className="flex gap-2">
-          <button onClick={handleNewTrip} className="flex items-center gap-1 bg-white text-slate-800 border border-slate-300 px-3 py-2 rounded-lg hover:bg-slate-50 font-bold transition"><RefreshCw size={16} /> New Trip</button>
+          <button onClick={handleNewTrip} className="flex items-center gap-1 bg-white text-slate-800 border border-slate-300 px-3 py-2 rounded-lg hover:bg-slate-50 font-bold transition shadow-sm"><RefreshCw size={16} /> New Trip</button>
           <button onClick={handleNewCustomer} className="flex items-center gap-1 bg-yellow-500 text-slate-900 px-4 py-2 rounded-lg hover:bg-yellow-600 font-bold transition shadow-sm"><UserPlus size={16} /> New Customer</button>
         </div>
       </div>
@@ -66,12 +122,24 @@ export default function TravelForm() {
 
         <div className="grid grid-cols-2 gap-4 border-t pt-4 mt-4">
           <div>
-            <div className="flex justify-between"><label className="block font-bold mb-1">Upload Logo</label>{store.logo && <button onClick={()=>store.setField('logo', null)} className="text-[10px] text-red-500">Clear</button>}</div>
+            <div className="flex justify-between items-center mb-1">
+                <label className="block font-bold">Upload Logo</label>
+                <div className="flex gap-2">
+                    {store.logo && <button onClick={() => handleBgRemoval('logo')} disabled={isProcessing} className="text-[10px] text-blue-600 font-bold bg-blue-50 px-2 py-1 rounded flex items-center"><Scan size={10} className="mr-1"/> Rem BG</button>}
+                    {store.logo && <button onClick={()=>store.setField('logo', null)} className="text-[10px] text-red-500">Clear</button>}
+                </div>
+            </div>
             <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'logo')} className="w-full p-1 border rounded text-xs bg-white" />
             <label className="flex items-center space-x-2 mt-2 cursor-pointer font-bold"><input type="checkbox" checked={store.showLogo} onChange={(e) => store.setField('showLogo', e.target.checked)} /> <span>Show Logo</span></label>
           </div>
           <div>
-            <div className="flex justify-between"><label className="block font-bold mb-1">Upload Signature</label>{store.signature && <button onClick={()=>store.setField('signature', null)} className="text-[10px] text-red-500">Clear</button>}</div>
+            <div className="flex justify-between items-center mb-1">
+                <label className="block font-bold">Upload Signature</label>
+                <div className="flex gap-2">
+                    {store.signature && <button onClick={() => handleBgRemoval('signature')} disabled={isProcessing} className="text-[10px] text-blue-600 font-bold bg-blue-50 px-2 py-1 rounded flex items-center"><Scan size={10} className="mr-1"/> Rem BG</button>}
+                    {store.signature && <button onClick={()=>store.setField('signature', null)} className="text-[10px] text-red-500">Clear</button>}
+                </div>
+            </div>
             <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'signature')} className="w-full p-1 border rounded text-xs bg-white" />
             <label className="flex items-center space-x-2 mt-2 cursor-pointer font-bold"><input type="checkbox" checked={store.showSignature} onChange={(e) => store.setField('showSignature', e.target.checked)} /> <span>Show Signature Block</span></label>
           </div>
@@ -126,6 +194,44 @@ export default function TravelForm() {
           <label className="font-bold">Apply GST ({store.taxRate}%)</label>
         </div>
       </div>
+
+      {/* 🟢 NAYA: Memory Manager (History) */}
+      <div className="mt-10 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden w-full">
+        <div className="bg-slate-800 text-white p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <h2 className="text-base font-bold flex items-center gap-2"><Save size={18}/> Local Trip Memory</h2>
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => { const s = store.saveBillToHistory(grandTotal); if(s) showToast("Saved!"); else window.alert("⚠️ Duplicate bill!"); }} className="bg-blue-500 hover:bg-blue-600 px-3 py-1.5 rounded text-xs font-bold transition">Save Current</button>
+            <button onClick={() => { if(window.confirm("Delete selected?")) { store.deleteBillsFromHistory(store.selectedBills); showToast("Deleted!"); } }} className="bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded text-xs font-bold transition"><Trash2 size={14}/></button>
+            <button onClick={() => window.print()} className="bg-emerald-500 hover:bg-emerald-600 px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1 transition"><Printer size={14}/> Bulk Print</button>
+          </div>
+        </div>
+        <div className="p-0 md:p-4 max-h-80 overflow-y-auto w-full custom-scrollbar">
+          {(!store.billHistory || store.billHistory.length === 0) ? <p className="text-center text-slate-400 py-4 italic">No saved trips.</p> : (
+            <div className="overflow-x-auto w-full">
+              <table className="w-full text-left text-sm min-w-[500px]">
+                <thead className="border-b font-bold text-slate-500 uppercase text-[10px] bg-slate-50">
+                  <tr>
+                    <th className="p-3 w-8"><input type="checkbox" onChange={(e) => store.setSelectedBills(e.target.checked ? store.billHistory.map(b => b.id) : [])} checked={store.selectedBills.length === store.billHistory.length && store.billHistory.length > 0} /></th>
+                    <th className="p-3">Customer / Vehicle</th><th className="p-3">Invoice & Date</th><th className="p-3">Amount</th><th className="p-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y text-slate-700">
+                  {store.billHistory.map((b, index) => (
+                    <tr key={`${b.id}-${index}`} className="hover:bg-slate-50">
+                      <td className="p-3"><input type="checkbox" checked={store.selectedBills.includes(b.id)} onChange={(e) => store.setSelectedBills(e.target.checked ? [...store.selectedBills, b.id] : store.selectedBills.filter(id => id !== b.id))} /></td>
+                      <td className="p-3 font-bold leading-tight text-blue-900">{b.customerName || 'Walk-in'} <br/><span className="text-[10px] text-slate-500 font-normal uppercase">{b.vehicleNo}</span></td>
+                      <td className="p-3">{b.invoiceNo} <br/><span className="text-slate-400 text-xs block">{b.date}</span></td>
+                      <td className="p-3 font-mono font-bold text-emerald-600">{b.currency}{b.grandTotal?.toFixed(2)}</td>
+                      <td className="p-3 text-right"><button onClick={() => { store.loadBillFromHistory(b); showToast("Loaded!"); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="text-indigo-600 hover:underline text-xs font-bold bg-indigo-50 px-2 py-1 rounded">Edit</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
     </div>
   );
 }

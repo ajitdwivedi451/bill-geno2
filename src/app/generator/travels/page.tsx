@@ -1,7 +1,7 @@
 'use client';
 
-import TravelForm from '@/components/generator/TravelForm';
-import TravelPreview from '@/components/generator/TravelPreview';
+import TravelForm from '@/components/TravelForm';
+import TravelPreview from '@/components/TravelPreview';
 
 export default function TravelGeneratorPage() {
   return (

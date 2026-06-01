@@ -1,7 +1,7 @@
 'use client';
 
-import RestaurantForm from '@/components/generator/RestaurantForm';
-import RestaurantPreview from '@/components/generator/RestaurantPreview';
+import {RestaurantForm} from '@/components/RestaurantForm';
+import {RestaurantPreview} from '@/components/RestaurantPreview';
 
 export default function RestaurantGeneratorPage() {
   return (
