@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { motion } from 'framer-motion';
+import { motion, Variants } from 'framer-motion';
 import { Utensils, Building2, Fuel, CarFront, MonitorCheck, Activity } from 'lucide-react';
 
 export default function HomePage() {
@@ -12,9 +12,24 @@ export default function HomePage() {
     { name: 'Travels & Taxi', description: 'Duty slips, CAB invoices & distance billing.', icon: <CarFront className="w-8 h-8 text-amber-600" />, href: '/generator/travels', bgColor: 'bg-amber-50', borderColor: 'border-amber-200' }
   ];
 
-  // Animation Variants
-  const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } };
-  const item = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } } };
+  // 🟢 YAHAN FIX KIYA HAI: ': Variants' aur 'as const' lagaya hai
+  const container: Variants = { 
+    hidden: { opacity: 0 }, 
+    show: { opacity: 1, transition: { staggerChildren: 0.1 } } 
+  };
+  
+  const item: Variants = { 
+    hidden: { opacity: 0, y: 20 }, 
+    show: { 
+      opacity: 1, 
+      y: 0, 
+      transition: { 
+        type: "spring" as const, // <-- TypeScript ke liye ye zaroori hai
+        stiffness: 300, 
+        damping: 24 
+      } 
+    } 
+  };
 
   return (
     <div className="max-w-6xl mx-auto">

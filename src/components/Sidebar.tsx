@@ -1,74 +1,91 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { motion } from 'framer-motion';
-import { LayoutDashboard, Fuel, Building2, Utensils, CarFront, Settings, LogOut } from 'lucide-react';
-
-const navItems = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Fuel Station', href: '/generator/fuel', icon: Fuel },
-  { name: 'Hotel & Lodge', href: '/generator/hotel', icon: Building2 },
-  { name: 'Restaurant', href: '/generator/restaurant', icon: Utensils },
-  { name: 'Travels & Taxi', href: '/generator/travels', icon: CarFront },
-];
+import { LayoutDashboard, Fuel, Building2, Utensils, CarFront, Settings, LogOut, ChevronLeft, ChevronRight, LayoutGrid } from 'lucide-react';
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  // 🟢 SMART ENGINE: Jaise hi Generator page par jayenge, menu automatically chhota ho jayega!
+  useEffect(() => {
+    if (pathname.includes('/generator')) {
+      setIsCollapsed(true);
+    } else {
+      setIsCollapsed(false);
+    }
+  }, [pathname]);
+
+  const navItems = [
+    { name: 'Dashboard', href: '/', icon: <LayoutDashboard size={20} /> },
+    { name: 'Fuel Station', href: '/generator/fuel', icon: <Fuel size={20} /> },
+    { name: 'Hotel & Lodge', href: '/generator/hotel', icon: <Building2 size={20} /> },
+    { name: 'Restaurant', href: '/generator/restaurant', icon: <Utensils size={20} /> },
+    { name: 'Travels & Taxi', href: '/generator/travels', icon: <CarFront size={20} /> },
+  ];
 
   return (
-    <div className="w-64 bg-slate-900 border-r border-slate-800 h-screen flex flex-col text-slate-300 hidden md:flex sticky top-0 print:hidden shadow-2xl">
-      {/* Branding */}
-      <div className="h-20 flex items-center px-6 border-b border-slate-800 bg-slate-950">
-        <div className="flex items-center gap-3">
-          <div className="bg-gradient-to-br from-amber-400 to-amber-600 p-2 rounded-lg shadow-lg">
-            <LayoutDashboard className="text-slate-900 w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-xl font-black text-white tracking-wider">BILLGENO</h1>
-            <p className="text-[9px] font-bold text-amber-500 uppercase tracking-widest">Workspace</p>
-          </div>
+    <aside 
+      className={`relative bg-[#0b1121] border-r border-slate-800 text-slate-300 min-h-screen transition-all duration-300 ease-in-out flex flex-col shadow-2xl z-50 ${isCollapsed ? 'w-[80px]' : 'w-64 shrink-0'}`}
+    >
+      {/* 🟢 Toggle Button */}
+      <button 
+        onClick={() => setIsCollapsed(!isCollapsed)} 
+        className="absolute -right-3 top-8 bg-amber-500 text-slate-900 p-1.5 rounded-full shadow-lg hover:bg-amber-400 transition-all z-50 border-2 border-[#0b1121]"
+      >
+        {isCollapsed ? <ChevronRight size={14} strokeWidth={3} /> : <ChevronLeft size={14} strokeWidth={3} />}
+      </button>
+
+      {/* Logo Section */}
+      <div className={`p-5 flex items-center gap-3 ${isCollapsed ? 'justify-center px-0' : ''}`}>
+        <div className="bg-amber-500 text-slate-900 p-2 rounded-lg shrink-0">
+          <LayoutGrid size={22} strokeWidth={2.5} />
         </div>
+        {!isCollapsed && (
+          <div className="overflow-hidden whitespace-nowrap">
+            <h1 className="text-white font-black text-xl tracking-wider leading-none">BILLGENO</h1>
+            <p className="text-amber-500 text-[9px] font-bold tracking-widest uppercase mt-0.5">Workspace</p>
+          </div>
+        )}
+      </div>
+
+      <div className={`px-6 mt-2 text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-3 ${isCollapsed ? 'hidden' : 'block'}`}>
+        Modules
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto custom-scrollbar">
-        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4 px-2">Modules</p>
-        
+      <nav className="flex-1 px-3 space-y-1.5">
         {navItems.map((item) => {
-          const isActive = pathname === item.href;
-          const Icon = item.icon;
-
+          const isActive = pathname.includes(item.href) && item.href !== '/' || pathname === item.href;
           return (
-            <Link key={item.name} href={item.href} className="block relative">
-              {/* Animated Active Background */}
-              {isActive && (
-                <motion.div
-                  layoutId="active-nav"
-                  className="absolute inset-0 bg-slate-800 border-l-4 border-amber-500 rounded-r-lg"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.2 }}
-                />
-              )}
-              <div className={`relative flex items-center gap-3 px-3 py-3 rounded-lg font-medium transition-colors z-10 ${isActive ? 'text-amber-400' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}>
-                <Icon className={`w-5 h-5 ${isActive ? 'text-amber-400' : 'text-slate-500'}`} />
-                <span className="text-sm">{item.name}</span>
+            <Link key={item.name} href={item.href}>
+              <div 
+                title={isCollapsed ? item.name : ''} // Hover karne par naam dikhega jab chhota hoga
+                className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-all cursor-pointer ${isActive ? 'bg-slate-800 text-amber-400 font-bold shadow-inner' : 'hover:bg-slate-800/50 hover:text-white font-medium'} ${isCollapsed ? 'justify-center' : ''}`}
+              >
+                <div className="shrink-0">{item.icon}</div>
+                {!isCollapsed && <span className="whitespace-nowrap">{item.name}</span>}
               </div>
             </Link>
           );
         })}
       </nav>
 
-      {/* Bottom Footer Actions */}
-      <div className="p-4 border-t border-slate-800 bg-slate-950">
-        <button className="flex items-center gap-3 px-3 py-2 w-full text-slate-400 hover:text-white transition-colors rounded-lg hover:bg-slate-800">
-          <Settings className="w-4 h-4" /> <span className="text-sm font-medium">Settings</span>
-        </button>
-        <button className="flex items-center gap-3 px-3 py-2 w-full text-rose-400 hover:text-rose-300 transition-colors rounded-lg hover:bg-slate-800 mt-1">
-          <LogOut className="w-4 h-4" /> <span className="text-sm font-medium">Exit System</span>
+      {/* Bottom Settings */}
+      <div className="p-3 border-t border-slate-800 space-y-1.5">
+        <Link href="/settings">
+          <div title={isCollapsed ? "Settings" : ""} className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-all cursor-pointer hover:bg-slate-800/50 hover:text-white font-medium ${isCollapsed ? 'justify-center' : ''}`}>
+            <Settings size={20} className="shrink-0" />
+            {!isCollapsed && <span className="whitespace-nowrap">Settings</span>}
+          </div>
+        </Link>
+        <button title={isCollapsed ? "Exit System" : ""} className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all cursor-pointer hover:bg-red-500/10 text-red-400 hover:text-red-500 font-bold ${isCollapsed ? 'justify-center' : ''}`}>
+          <LogOut size={20} className="shrink-0" />
+          {!isCollapsed && <span className="whitespace-nowrap">Exit System</span>}
         </button>
       </div>
-    </div>
+    </aside>
   );
 }
