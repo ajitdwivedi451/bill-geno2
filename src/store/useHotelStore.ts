@@ -65,7 +65,7 @@ export interface HotelBillState {
   invoiceNo: string; date: string; roomNo: string; roomType: string; adults: number; kids: number; perDayCharge: number; noOfDays: number; checkInDate: string; checkOutDate: string; checkInTime: string; checkOutTime: string;
   advancePaid: number; discount: number; discountType: 'FLAT' | 'PERCENT'; paymentMode: string; extraServices: ExtraService[]; showServiceCharge: boolean; serviceCharge: number; hasTax: boolean; showSac: boolean; showSacOnHeaderOnly: boolean; cgstRate: number; sgstRate: number; sacCode: string; amountInWords: boolean;
   showGuestSignature: boolean; guestSignature: string | null; guestSignatureSize: number; guestSignatureX: number; guestSignatureY: number;
-  showSignature: boolean; signature: string | null; signatureSize: number; signatureX: number; signatureY: number; signatoryTitle: string; customSignatory: string; savedSignatures: string[]; savedGuestSignatures: string[]; // 🟢 Added missing array
+  showSignature: boolean; signature: string | null; signatureSize: number; signatureX: number; signatureY: number; signatoryTitle: string; customSignatory: string; savedSignatures: string[]; savedGuestSignatures: string[];
   showStamp: boolean; stampType: 'MUHAR' | 'PAID' | 'DUE' | 'CANCELLED'; stampColor: string; stampSize: number; stampX: number; stampY: number;
   termsIndex: number; customTerms: string; jurisdictionCity: string; showPoweredBy: boolean; currency: string; fontSize: number; printPaperSize: 'A4' | 'A3';
   serviceDB: { name: string; rate: number; gstSlab?: number }[]; foodDB: { name: string; rate: number; gstSlab?: number }[]; billHistory: any[]; guestDatabase: GuestRecord[];
@@ -86,6 +86,7 @@ export const useHotelStore = create<HotelBillState>()(
     termsIndex: 0, customTerms: '', jurisdictionCity: 'Local', showPoweredBy: true, currency: '₹', fontSize: 13, printPaperSize: 'A4',
     serviceDB: [], foodDB: [], billHistory: [], guestDatabase: [],
 
+    // 🟢 setField automatically calls synced autoCalculateNights
     setField: (field, value) => { set({ [field]: value } as any); if (field === 'checkInDate' || field === 'checkOutDate') get().autoCalculateNights(); },
     applyTheme: (preset) => { const colors: any = { ROYAL_GOLD: '#b48600', MIDNIGHT_NAVY: '#0f172a', VINTAGE_SEPIA: '#432818', ELITE_CORPORATE: '#334155' }; set({ themePreset: preset, themeColor: colors[preset] || '#0f172a' }); },
     addExtraService: () => set((state) => ({ extraServices: [...state.extraServices, { id: Date.now().toString(), name: '', qty: 1, rate: 0, amount: 0, gstSlab: 5, selected: true }] })),
@@ -94,8 +95,29 @@ export const useHotelStore = create<HotelBillState>()(
     removeExtraService: (id) => set((state) => ({ extraServices: state.extraServices.filter(item => item.id !== id) })),
     clearGuestDetails: () => set({ customerName: '', customerPhone: '', customerAddress: '', nationality: 'Indian', vehicleNo: '', guestCompany: '', guestGstin: '' }),
     startNewBill: () => set(() => ({ invoiceNo: 'INV-' + Math.floor(100000 + Math.random() * 900000), roomNo: '', extraServices: [], advancePaid: 0, discount: 0, perDayCharge: 2000, date: getLocalToday(), checkInDate: getLocalToday(), checkOutDate: getLocalTomorrow(), noOfDays: 1 })),
-    handleDateChange: (field, value) => { set({ [field]: value } as any); get().autoCalculateNights(); },
-    autoCalculateNights: () => { const s = get(); const d1 = new Date(s.checkInDate); const d2 = new Date(s.checkOutDate); if (!isNaN(d1.getTime()) && !isNaN(d2.getTime())) set({ noOfDays: Math.max(1, Math.ceil((d2.getTime() - d1.getTime()) / 86400000)) }); },
+    
+    // 🟢 2. UPDATED handleDateChange (With + 1 Logic precisely integrated)
+    handleDateChange: (field, val) => set((state: any) => {
+      const newState = { ...state, [field]: val };
+      const d1 = new Date(newState.checkInDate).getTime(); 
+      const d2 = new Date(newState.checkOutDate).getTime();
+      
+      let days = Math.ceil((d2 - d1) / (1000 * 3600 * 24)) + 1; 
+      
+      return { ...newState, noOfDays: days < 1 ? 1 : days };
+    }),
+
+    // 🟢 3. UPDATED autoCalculateNights (Synced with + 1 Logic to prevent calculation mismatch overrides)
+    autoCalculateNights: () => { 
+      const s = get(); 
+      const d1 = new Date(s.checkInDate).getTime(); 
+      const d2 = new Date(s.checkOutDate).getTime(); 
+      if (!isNaN(d1) && !isNaN(d2)) {
+        let days = Math.ceil((d2 - d1) / (1000 * 3600 * 24)) + 1;
+        set({ noOfDays: days < 1 ? 1 : days });
+      }
+    },
+
     saveImageToGallery: (type, url) => set((state) => {
       if (type === 'logo' && !state.customLogos.includes(url)) return { customLogos: [...state.customLogos, url] };
       if (type === 'signature' && !state.savedSignatures.includes(url)) return { savedSignatures: [...state.savedSignatures, url] };
@@ -109,7 +131,6 @@ export const useHotelStore = create<HotelBillState>()(
       const state = get(); if (state.billHistory.some(b => b.invoiceNo === state.invoiceNo)) return false;
       const snap = JSON.parse(JSON.stringify(state)); delete snap.billHistory; delete snap.customLogos; delete snap.savedSignatures; delete snap.savedGuestSignatures; delete snap.serviceDB; delete snap.foodDB; delete snap.guestDatabase; snap.grandTotal = totalAmount;
       
-      // 🟢 CRM Upsert Logic
       const updatedCRM = [...state.guestDatabase];
       const existingIdx = updatedCRM.findIndex(g => g.phone === state.customerPhone);
       if (existingIdx >= 0) updatedCRM[existingIdx] = { name: state.customerName, phone: state.customerPhone, address: state.customerAddress, nationality: state.nationality };
