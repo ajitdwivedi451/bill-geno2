@@ -123,7 +123,7 @@ export const TemplateEngine = ({ data }: { data: HotelBillState }) => {
           <p className="font-bold uppercase tracking-wider text-[10px] mb-1" style={{ color: brandColor }}>Property Terms & Conditions:</p>
           {termsArray.map((t, i) => <p key={i} className="mb-0.5">{t}</p>)}
           <p className="mt-2 font-bold text-slate-800">Jurisdiction: Court Of {data.jurisdictionCity || 'Local'}</p>
-          {data.showPoweredBy && <p className="mt-3 opacity-40 text-[9px] font-mono">System Generated via Dwivex Labs PMS</p>}
+          {/* {data.showPoweredBy && <p className="mt-3 opacity-40 text-[9px] font-mono"></p>} */}
         </div>
         <div className="flex gap-8 items-end relative z-10">
            {data.showGuestSignature && (
