@@ -73,7 +73,13 @@ export function RestaurantPreview() {
 
         for (let i = 0; i < elements.length; i++) {
           const el = elements[i] as HTMLElement;
-          const dataUrl = await toPng(el, { backgroundColor: '#ffffff', pixelRatio: 3 });
+          // 🟢 FIX 2: toPng ko forcefully batao ki background color aur image kya rakhni hai
+          const activeBg = getPaperBgStyle(store);
+          const dataUrl = await toPng(el, { 
+            backgroundColor: activeBg.backgroundColor || '#ffffff',
+            style: { backgroundImage: activeBg.backgroundImage || 'none' },
+            pixelRatio: 3 
+          });
           
           const pxToMm = 0.264583; 
           let imgWidth = el.offsetWidth * pxToMm; 
@@ -538,10 +544,23 @@ export function RestaurantPreview() {
         ))}
       </div> */}
       {/* 🟢 FIX: Removed w-[210mm] and added flex-col so bills render at 100% width before screenshot */}
-      <div id="bulk-container" className="absolute top-[-9999px] left-[-9999px] flex flex-col gap-8 opacity-0 print:opacity-100 z-[-10]">
+      {/* <div id="bulk-container" className="absolute top-[-9999px] left-[-9999px] flex flex-col gap-8 opacity-0 print:opacity-100 z-[-10]">
         {store.billHistory.filter(b => store.selectedBills.includes(b.id)).map(bill => (
           <div key={bill.id} className="print-bill relative overflow-hidden bg-white border border-slate-100 inline-block" style={{ ...getPaperBgStyle(bill), width: `${bill.paperWidth}px` }}>
              <div className="relative px-5 py-6 tracking-tight font-medium" style={getPaperStyle(bill)}>{renderTemplate(bill)}</div>
+          </div>
+        ))}
+      </div> */}
+      {/* 🟢 FIX: print-bill se bg-white hata diya hai taki inline getPaperBgStyle properly render ho */}
+      {/* 🟢 FIX 1: opacity-0 hata diya aur getPaperBgStyle(store) lagaya */}
+      <div id="bulk-container" className="absolute top-[-9999px] left-[-9999px] flex flex-col gap-8 print:opacity-100 z-[-10]">
+        {store.billHistory.filter(b => store.selectedBills.includes(b.id)).map(bill => (
+          <div key={bill.id} className="print-bill relative overflow-hidden border border-slate-200 inline-block" 
+               style={{ ...getPaperBgStyle(store), width: `${store.paperWidth}px` }}>
+             <div className="relative px-5 py-6 tracking-tight font-medium" style={getPaperStyle(store)}>
+               {/* 🟢 Data bill ka hoga, par logo aur template style current active uthayega */}
+               {renderTemplate({ ...bill, logo: store.logo, watermark: store.watermark, selectedTemplate: store.selectedTemplate })}
+             </div>
           </div>
         ))}
       </div>
