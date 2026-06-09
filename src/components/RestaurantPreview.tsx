@@ -25,38 +25,105 @@ export function RestaurantPreview() {
 
   useEffect(() => { setIsMounted(true); }, []);
 
+  // useEffect(() => {
+  //   const handleBulkDownload = async () => {
+  //     const elements = document.querySelectorAll('.print-bill');
+  //     if (elements.length === 0) return alert("⚠️ No bills found to download.");
+  //     try {
+  //       const pdf = new jsPDF({ format: 'a4', unit: 'mm' });
+  //       const margin = 10; let currentX = margin; let currentY = margin; const a4Width = 210; const a4Height = 297; let maxRowHeight = 0;
+
+  //       for (let i = 0; i < elements.length; i++) {
+  //         const el = elements[i] as HTMLElement;
+  //         const dataUrl = await toPng(el, { backgroundColor: '#ffffff', pixelRatio: 2 });
+  //         const pxToMm = 0.264583; let imgWidth = el.offsetWidth * pxToMm; let imgHeight = el.offsetHeight * pxToMm;
+
+  //         if (imgHeight > (a4Height - 20)) {
+  //           const scaleFactor = (a4Height - 20) / imgHeight;
+  //           imgHeight = imgHeight * scaleFactor; imgWidth = imgWidth * scaleFactor;
+  //         }
+
+  //         if (currentX + imgWidth > a4Width - margin) { currentX = margin; currentY += maxRowHeight + 5; maxRowHeight = 0; }
+  //         if (currentY + imgHeight > a4Height - margin) { pdf.addPage(); currentX = margin; currentY = margin; maxRowHeight = 0; }
+
+  //         pdf.addImage(dataUrl, 'PNG', currentX, currentY, imgWidth, imgHeight);
+  //         currentX += imgWidth + 8; if (imgHeight > maxRowHeight) maxRowHeight = imgHeight;
+  //       }
+  //       pdf.save(`Bulk_Rest_Bills_${new Date().getTime()}.pdf`);
+  //       alert("✅ Bulk Download Complete!");
+  //     } catch (err) { console.error(err); alert("⚠️ Error processing Bulk PDF."); }
+  //   };
+  //   window.addEventListener('bulk-download', handleBulkDownload);
+  //   return () => window.removeEventListener('bulk-download', handleBulkDownload);
+  // }, [store.selectedBills]);
   useEffect(() => {
     const handleBulkDownload = async () => {
       const elements = document.querySelectorAll('.print-bill');
       if (elements.length === 0) return alert("⚠️ No bills found to download.");
+      
       try {
         const pdf = new jsPDF({ format: 'a4', unit: 'mm' });
-        const margin = 10; let currentX = margin; let currentY = margin; const a4Width = 210; const a4Height = 297; let maxRowHeight = 0;
+        const a4Width = 210; 
+        const a4Height = 297;
+        const margin = 10; 
+        
+        let currentX = margin;
+        let currentY = margin;
+        let maxRowHeight = 0;
 
         for (let i = 0; i < elements.length; i++) {
           const el = elements[i] as HTMLElement;
-          const dataUrl = await toPng(el, { backgroundColor: '#ffffff', pixelRatio: 2 });
-          const pxToMm = 0.264583; let imgWidth = el.offsetWidth * pxToMm; let imgHeight = el.offsetHeight * pxToMm;
+          const dataUrl = await toPng(el, { backgroundColor: '#ffffff', pixelRatio: 3 });
+          
+          const pxToMm = 0.264583; 
+          let imgWidth = el.offsetWidth * pxToMm; 
+          let imgHeight = el.offsetHeight * pxToMm;
 
-          if (imgHeight > (a4Height - 20)) {
-            const scaleFactor = (a4Height - 20) / imgHeight;
-            imgHeight = imgHeight * scaleFactor; imgWidth = imgWidth * scaleFactor;
+          // Max Width Limit: Ek bill A4 ki aadhi width se thoda chota hona chahiye (taki 2 side-by-side aa sakein)
+          const maxWidth = 90; // 90mm is safe for 2 columns
+          if (imgWidth > maxWidth) {
+            const ratio = maxWidth / imgWidth;
+            imgWidth = maxWidth;
+            imgHeight = imgHeight * ratio;
           }
 
-          if (currentX + imgWidth > a4Width - margin) { currentX = margin; currentY += maxRowHeight + 5; maxRowHeight = 0; }
-          if (currentY + imgHeight > a4Height - margin) { pdf.addPage(); currentX = margin; currentY = margin; maxRowHeight = 0; }
+          // Check X: Agar next bill same row me fit nahi aa raha to next row me jao
+          if (currentX + imgWidth > a4Width - margin) {
+            currentX = margin;
+            currentY += maxRowHeight + 10; // row gap
+            maxRowHeight = 0;
+          }
 
+          // Check Y: Agar next row page limit se bahar ja rahi hai to naya page add karo
+          if (currentY + imgHeight > a4Height - margin) {
+            pdf.addPage();
+            currentX = margin;
+            currentY = margin;
+            maxRowHeight = 0;
+          }
+
+          // Print Image
           pdf.addImage(dataUrl, 'PNG', currentX, currentY, imgWidth, imgHeight);
-          currentX += imgWidth + 8; if (imgHeight > maxRowHeight) maxRowHeight = imgHeight;
+          
+          // Next bill ke liye X position update karo (plus gap)
+          currentX += imgWidth + 10; 
+          
+          if (imgHeight > maxRowHeight) {
+            maxRowHeight = imgHeight;
+          }
         }
+        
         pdf.save(`Bulk_Rest_Bills_${new Date().getTime()}.pdf`);
         alert("✅ Bulk Download Complete!");
-      } catch (err) { console.error(err); alert("⚠️ Error processing Bulk PDF."); }
+      } catch (err) { 
+        console.error(err); 
+        alert("⚠️ Error processing Bulk PDF."); 
+      }
     };
+    
     window.addEventListener('bulk-download', handleBulkDownload);
     return () => window.removeEventListener('bulk-download', handleBulkDownload);
   }, [store.selectedBills]);
-
   const generateFileName = (ext: string) => `Rest_Bill_${store.receiptNo}_${store.date}.${ext}`;
 
   const downloadPNG = async () => {
@@ -463,9 +530,17 @@ export function RestaurantPreview() {
         </div>
       </div>
 
-      <div id="bulk-container" className="absolute top-[-9999px] left-[-9999px] flex gap-4 w-[210mm] opacity-0 print:opacity-100 z-[-10]">
+      {/* <div id="bulk-container" className="absolute top-[-9999px] left-[-9999px] flex gap-4 w-[210mm] opacity-0 print:opacity-100 z-[-10]">
         {store.billHistory.filter(b => store.selectedBills.includes(b.id)).map(bill => (
           <div key={bill.id} className="print-bill relative overflow-hidden bg-white border border-slate-100" style={{ ...getPaperBgStyle(bill), width: `${bill.paperWidth}px` }}>
+             <div className="relative px-5 py-6 tracking-tight font-medium" style={getPaperStyle(bill)}>{renderTemplate(bill)}</div>
+          </div>
+        ))}
+      </div> */}
+      {/* 🟢 FIX: Removed w-[210mm] and added flex-col so bills render at 100% width before screenshot */}
+      <div id="bulk-container" className="absolute top-[-9999px] left-[-9999px] flex flex-col gap-8 opacity-0 print:opacity-100 z-[-10]">
+        {store.billHistory.filter(b => store.selectedBills.includes(b.id)).map(bill => (
+          <div key={bill.id} className="print-bill relative overflow-hidden bg-white border border-slate-100 inline-block" style={{ ...getPaperBgStyle(bill), width: `${bill.paperWidth}px` }}>
              <div className="relative px-5 py-6 tracking-tight font-medium" style={getPaperStyle(bill)}>{renderTemplate(bill)}</div>
           </div>
         ))}

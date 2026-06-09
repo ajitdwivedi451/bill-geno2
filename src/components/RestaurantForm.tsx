@@ -209,6 +209,7 @@ export function RestaurantForm() {
             <div className="col-span-2 md:col-span-4 grid grid-cols-2 md:grid-cols-4 gap-4 mb-2 pb-2 border-b">
               <div><label className="block text-xs font-bold">Restaurant Name</label><input className="w-full p-1.5 border rounded outline-none" value={store.businessName} onChange={(e)=>store.setField('businessName', e.target.value)}/></div>
               <div className="col-span-2"><label className="block text-xs font-bold">Address</label><input className="w-full p-1.5 border rounded outline-none" value={store.address} onChange={(e)=>store.setField('address', e.target.value)}/></div>
+              <div><label className="block text-xs font-bold">Phone No.</label><input className="w-full p-1.5 border rounded outline-none" value={store.phone || ''} onChange={(e)=>store.setField('phone', e.target.value)}/></div>
               <div><label className="block text-xs font-bold">FSSAI No.</label><input className="w-full p-1.5 border rounded outline-none" value={store.fssaiNo} onChange={(e)=>store.setField('fssaiNo', e.target.value)}/></div>
             </div>
 
