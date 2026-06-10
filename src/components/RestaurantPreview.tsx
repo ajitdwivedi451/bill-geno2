@@ -25,37 +25,7 @@ export function RestaurantPreview() {
 
   useEffect(() => { setIsMounted(true); }, []);
 
-  // useEffect(() => {
-  //   const handleBulkDownload = async () => {
-  //     const elements = document.querySelectorAll('.print-bill');
-  //     if (elements.length === 0) return alert("⚠️ No bills found to download.");
-  //     try {
-  //       const pdf = new jsPDF({ format: 'a4', unit: 'mm' });
-  //       const margin = 10; let currentX = margin; let currentY = margin; const a4Width = 210; const a4Height = 297; let maxRowHeight = 0;
-
-  //       for (let i = 0; i < elements.length; i++) {
-  //         const el = elements[i] as HTMLElement;
-  //         const dataUrl = await toPng(el, { backgroundColor: '#ffffff', pixelRatio: 2 });
-  //         const pxToMm = 0.264583; let imgWidth = el.offsetWidth * pxToMm; let imgHeight = el.offsetHeight * pxToMm;
-
-  //         if (imgHeight > (a4Height - 20)) {
-  //           const scaleFactor = (a4Height - 20) / imgHeight;
-  //           imgHeight = imgHeight * scaleFactor; imgWidth = imgWidth * scaleFactor;
-  //         }
-
-  //         if (currentX + imgWidth > a4Width - margin) { currentX = margin; currentY += maxRowHeight + 5; maxRowHeight = 0; }
-  //         if (currentY + imgHeight > a4Height - margin) { pdf.addPage(); currentX = margin; currentY = margin; maxRowHeight = 0; }
-
-  //         pdf.addImage(dataUrl, 'PNG', currentX, currentY, imgWidth, imgHeight);
-  //         currentX += imgWidth + 8; if (imgHeight > maxRowHeight) maxRowHeight = imgHeight;
-  //       }
-  //       pdf.save(`Bulk_Rest_Bills_${new Date().getTime()}.pdf`);
-  //       alert("✅ Bulk Download Complete!");
-  //     } catch (err) { console.error(err); alert("⚠️ Error processing Bulk PDF."); }
-  //   };
-  //   window.addEventListener('bulk-download', handleBulkDownload);
-  //   return () => window.removeEventListener('bulk-download', handleBulkDownload);
-  // }, [store.selectedBills]);
+ 
   useEffect(() => {
     const handleBulkDownload = async () => {
       const elements = document.querySelectorAll('.print-bill');
@@ -71,10 +41,16 @@ export function RestaurantPreview() {
         let currentY = margin;
         let maxRowHeight = 0;
 
+        // Note: Elements array and filtered bill array have the same order
+        const selectedBillData = store.billHistory.filter(b => store.selectedBills.includes(b.id));
+
         for (let i = 0; i < elements.length; i++) {
           const el = elements[i] as HTMLElement;
-          // 🟢 FIX 2: toPng ko forcefully batao ki background color aur image kya rakhni hai
-          const activeBg = getPaperBgStyle(store);
+          const currentBill = selectedBillData[i]; // Uss element ka original data nikaal liya
+          
+          // 🟢 FIX: Ab `store` ki jagah strictly uusi saved `currentBill` ka background style uthega
+          const activeBg = getPaperBgStyle(currentBill);
+          
           const dataUrl = await toPng(el, { 
             backgroundColor: activeBg.backgroundColor || '#ffffff',
             style: { backgroundImage: activeBg.backgroundImage || 'none' },
@@ -85,22 +61,30 @@ export function RestaurantPreview() {
           let imgWidth = el.offsetWidth * pxToMm; 
           let imgHeight = el.offsetHeight * pxToMm;
 
-          // Max Width Limit: Ek bill A4 ki aadhi width se thoda chota hona chahiye (taki 2 side-by-side aa sakein)
-          const maxWidth = 90; // 90mm is safe for 2 columns
+          // Max Width Limit
+          const maxWidth = 90; 
           if (imgWidth > maxWidth) {
             const ratio = maxWidth / imgWidth;
             imgWidth = maxWidth;
             imgHeight = imgHeight * ratio;
           }
 
-          // Check X: Agar next bill same row me fit nahi aa raha to next row me jao
+          // Max Height Limit (Lamba bill katne se bachaane ke liye)
+          const maxHeight = a4Height - (margin * 2); 
+          if (imgHeight > maxHeight) {
+            const ratioH = maxHeight / imgHeight;
+            imgHeight = maxHeight;
+            imgWidth = imgWidth * ratioH;
+          }
+
+          // Next row
           if (currentX + imgWidth > a4Width - margin) {
             currentX = margin;
-            currentY += maxRowHeight + 10; // row gap
+            currentY += maxRowHeight + 10; 
             maxRowHeight = 0;
           }
 
-          // Check Y: Agar next row page limit se bahar ja rahi hai to naya page add karo
+          // Next page
           if (currentY + imgHeight > a4Height - margin) {
             pdf.addPage();
             currentX = margin;
@@ -108,10 +92,7 @@ export function RestaurantPreview() {
             maxRowHeight = 0;
           }
 
-          // Print Image
           pdf.addImage(dataUrl, 'PNG', currentX, currentY, imgWidth, imgHeight);
-          
-          // Next bill ke liye X position update karo (plus gap)
           currentX += imgWidth + 10; 
           
           if (imgHeight > maxRowHeight) {
@@ -129,7 +110,7 @@ export function RestaurantPreview() {
     
     window.addEventListener('bulk-download', handleBulkDownload);
     return () => window.removeEventListener('bulk-download', handleBulkDownload);
-  }, [store.selectedBills]);
+  }, [store.selectedBills, store.billHistory]); // 🟢 Added billHistory to dependency array
   const generateFileName = (ext: string) => `Rest_Bill_${store.receiptNo}_${store.date}.${ext}`;
 
   const downloadPNG = async () => {
@@ -536,30 +517,14 @@ export function RestaurantPreview() {
         </div>
       </div>
 
-      {/* <div id="bulk-container" className="absolute top-[-9999px] left-[-9999px] flex gap-4 w-[210mm] opacity-0 print:opacity-100 z-[-10]">
-        {store.billHistory.filter(b => store.selectedBills.includes(b.id)).map(bill => (
-          <div key={bill.id} className="print-bill relative overflow-hidden bg-white border border-slate-100" style={{ ...getPaperBgStyle(bill), width: `${bill.paperWidth}px` }}>
-             <div className="relative px-5 py-6 tracking-tight font-medium" style={getPaperStyle(bill)}>{renderTemplate(bill)}</div>
-          </div>
-        ))}
-      </div> */}
-      {/* 🟢 FIX: Removed w-[210mm] and added flex-col so bills render at 100% width before screenshot */}
-      {/* <div id="bulk-container" className="absolute top-[-9999px] left-[-9999px] flex flex-col gap-8 opacity-0 print:opacity-100 z-[-10]">
-        {store.billHistory.filter(b => store.selectedBills.includes(b.id)).map(bill => (
-          <div key={bill.id} className="print-bill relative overflow-hidden bg-white border border-slate-100 inline-block" style={{ ...getPaperBgStyle(bill), width: `${bill.paperWidth}px` }}>
-             <div className="relative px-5 py-6 tracking-tight font-medium" style={getPaperStyle(bill)}>{renderTemplate(bill)}</div>
-          </div>
-        ))}
-      </div> */}
-      {/* 🟢 FIX: print-bill se bg-white hata diya hai taki inline getPaperBgStyle properly render ho */}
-      {/* 🟢 FIX 1: opacity-0 hata diya aur getPaperBgStyle(store) lagaya */}
+      {/* 🟢 FINAL FIX: `store` nahi, balki `bill` object pass karna hai taki saved format retain rahe */}
       <div id="bulk-container" className="absolute top-[-9999px] left-[-9999px] flex flex-col gap-8 print:opacity-100 z-[-10]">
         {store.billHistory.filter(b => store.selectedBills.includes(b.id)).map(bill => (
           <div key={bill.id} className="print-bill relative overflow-hidden border border-slate-200 inline-block" 
-               style={{ ...getPaperBgStyle(store), width: `${store.paperWidth}px` }}>
-             <div className="relative px-5 py-6 tracking-tight font-medium" style={getPaperStyle(store)}>
-               {/* 🟢 Data bill ka hoga, par logo aur template style current active uthayega */}
-               {renderTemplate({ ...bill, logo: store.logo, watermark: store.watermark, selectedTemplate: store.selectedTemplate })}
+               style={{ ...getPaperBgStyle(bill), width: `${bill.paperWidth}px` }}>
+             <div className="relative px-5 py-6 tracking-tight font-medium" style={getPaperStyle(bill)}>
+               {/* Strictly saved bill data use hoga */}
+               {renderTemplate(bill)}
              </div>
           </div>
         ))}
