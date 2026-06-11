@@ -198,7 +198,7 @@ export default function HotelPreview() {
           Placed far off-screen so it doesn't mess with UI, but remains fully rendered.
       */}
       <div className="absolute top-[-9999px] left-[-9999px] bg-white" style={{ width: `${baseWidth}px`, minHeight: `${baseMinHeight}px` }}>
-        <div ref={printRef} className="w-full h-full">
+        <div ref={printRef} className="w-full h-fit">
           <TemplateEngine data={store} />
         </div>
       </div>

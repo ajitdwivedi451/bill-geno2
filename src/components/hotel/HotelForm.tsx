@@ -7,6 +7,36 @@ import { Trash2, RefreshCw, Save, CheckCircle2, Settings2, Stamp, Pizza, User, W
 
 const safeNum = (val: any) => isNaN(Number(val)) ? 0 : Number(val);
 
+const InlineAdjuster = ({ type, title, activeSetting, setActiveSetting, store }: { type: 'logo' | 'signature' | 'guestSignature' | 'stamp', title: string, activeSetting: string | null, setActiveSetting: any, store: any }) => {
+  if (activeSetting !== type) return null;
+  const isStamp = type === 'stamp';
+  return (
+    <div className="mt-4 p-5 bg-slate-50 border border-slate-200 rounded-xl">
+      <div className="flex justify-between items-center mb-4 pb-2 border-b border-slate-200">
+        <span className="text-xs font-black uppercase tracking-widest text-slate-700 flex items-center gap-2"><SlidersHorizontal size={14}/> {title} Tuning</span>
+        <button onClick={() => setActiveSetting(null)} className="text-slate-400 hover:text-red-500"><X size={16}/></button>
+      </div>
+      <div className="space-y-5">
+        <div>
+          <div className="flex justify-between"><label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Scale / Size</label></div>
+          <input type="range" min="20" max="300" value={store[`${type}Size`] ?? 80} onChange={(e)=>store.setField(`${type}Size`, safeNum(e.target.value))} className="w-full accent-slate-900 h-1.5 mt-2"/>
+        </div>
+        <div className="grid grid-cols-2 gap-6">
+          <div>
+            <div className="flex justify-between"><label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">X (Left/Right)</label></div>
+            <input type="range" min={isStamp ? 0 : -300} max={isStamp ? 100 : 300} value={store[`${type}X`] ?? (isStamp ? 50 : 0)} onChange={(e)=>store.setField(`${type}X`, safeNum(e.target.value))} className="w-full accent-blue-600 h-1.5 mt-2"/>
+          </div>
+          <div>
+            <div className="flex justify-between"><label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Y (Up/Down)</label></div>
+            <input type="range" min={isStamp ? 0 : -300} max={isStamp ? 100 : 300} value={store[`${type}Y`] ?? (isStamp ? 50 : 0)} onChange={(e)=>store.setField(`${type}Y`, safeNum(e.target.value))} className="w-full accent-emerald-600 h-1.5 mt-2"/>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
 export default function HotelForm() {
   const store = useHotelStore();
   const [toastMsg, setToastMsg] = useState('');
@@ -15,6 +45,7 @@ export default function HotelForm() {
   const [activeSetting, setActiveSetting] = useState<'logo' | 'signature' | 'guestSignature' | 'stamp' | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [showCRM, setShowCRM] = useState(false);
+  
   const [newPosName, setNewPosName] = useState('');
   const [newPosRate, setNewPosRate] = useState('');
 
@@ -38,11 +69,10 @@ export default function HotelForm() {
   const executeAutoRoomGen = () => {
     const num = Math.floor(100 + Math.random() * 499).toString();
     store.setField('roomNo', num);
-    showToast(`Allocated Room Room #${num}`);
+    showToast(`Allocated Room #${num}`);
   };
 
-  // 🟢 LOGO & SIGNATURE PROCESSING ENGINE WITH OPTIONAL ALPHA BACKGROUND REMOVAL
-  const handleImageUploadRegistry = (e: React.ChangeEvent<HTMLInputElement>, field: 'logo' | 'signature' | 'guestSignature') => {
+  const handleImageUploadRegistry = (e: React.ChangeEvent<HTMLInputElement>, field: 'logo' | 'signature' | 'guestSignature' | 'stamp') => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -61,18 +91,16 @@ export default function HotelForm() {
         if (makeTransparent && ctx) {
           const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
           const data = imgData.data;
-          // Threshold limits matching near-white coordinates
           for (let i = 0; i < data.length; i += 4) {
             if (data[i] > 210 && data[i+1] > 210 && data[i+2] > 210) {
-              data[i+3] = 0; // Set alpha to fully clear transparent channel
+              data[i+3] = 0; 
             }
           }
           ctx.putImageData(imgData, 0, 0);
         }
 
-        // Output compression to light density webp string asset safely matching limits
         const outputBase64 = canvas.toDataURL('image/webp', 0.85);
-        store.setField(field, outputBase64);
+        store.setField(field as any, outputBase64);
         showToast(`${field} parsed successfully!`);
       };
       img.src = event.target?.result as string;
@@ -90,7 +118,10 @@ export default function HotelForm() {
   };
 
   const exportToCSV = () => {
-    if (store.billHistory.length === 0) return showToast("No data captured yet!");
+    if (store.billHistory.length === 0) {
+      showToast("No data captured yet!");
+      return;
+    }
     const headers = ["Invoice No,Date,Guest Name,Company,GSTIN,Total Amount,Payment Mode"];
     const rows = store.billHistory.map(b => `"${b.invoiceNo}","${b.date}","${b.customerName}","${b.guestCompany || ''}","${b.guestGstin || ''}","${b.grandTotal}","${b.paymentMode || 'CASH'}"`);
     const csvBlob = new Blob([headers.concat(rows).join("\n")], { type: 'text/csv;charset=utf-8;' });
@@ -103,8 +134,6 @@ export default function HotelForm() {
     showToast("ERP Sheet Exported!");
   };
 
-  // 👇 YE WALA BLOCK ADD KARNA HAI return ( ke theek upar 👇
-  // 🟢 DATA VAULT: JSON Backup Logic
   const downloadBackup = () => {
     const backupData = JSON.stringify(store);
     const link = document.createElement("a");
@@ -126,22 +155,16 @@ export default function HotelForm() {
     };
     reader.readAsText(file);
   };
-  
-  const InlineAdjuster = ({ type, title }: { type: 'logo' | 'signature' | 'guestSignature' | 'stamp', title: string }) => {
-    if (activeSetting !== type) return null;
-    const isStamp = type === 'stamp';
-    return (
-      <div className="mt-4 p-5 bg-slate-50 border border-slate-200 rounded-xl">
-        <div className="flex justify-between items-center mb-4 pb-2 border-b border-slate-200"><span className="text-xs font-black uppercase tracking-widest text-slate-700 flex items-center gap-2"><SlidersHorizontal size={14}/> {title} Tuning</span><button onClick={() => setActiveSetting(null)} className="text-slate-400 hover:text-red-500"><X size={16}/></button></div>
-        <div className="space-y-5">
-          <div><div className="flex justify-between"><label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Scale / Size</label></div><input type="range" min="20" max="300" value={(store as any)[`${type}Size`] || 80} onChange={(e)=>store.setField(`${type}Size` as any, safeNum(e.target.value))} className="w-full accent-slate-900 h-1.5 mt-2"/></div>
-          <div className="grid grid-cols-2 gap-6">
-            <div><div className="flex justify-between"><label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">X (Left/Right)</label></div><input type="range" min={isStamp ? 0 : -300} max={isStamp ? 100 : 300} value={(store as any)[`${type}X`] || (isStamp ? 50 : 0)} onChange={(e)=>store.setField(`${type}X` as any, safeNum(e.target.value))} className="w-full accent-blue-600 h-1.5 mt-2"/></div>
-            <div><div className="flex justify-between"><label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Y (Up/Down)</label></div><input type="range" min={isStamp ? 0 : -300} max={isStamp ? 100 : 300} value={(store as any)[`${type}Y`] || (isStamp ? 50 : 0)} onChange={(e)=>store.setField(`${type}Y` as any, safeNum(e.target.value))} className="w-full accent-emerald-600 h-1.5 mt-2"/></div>
-          </div>
-        </div>
-      </div>
-    );
+
+  const handleAddCustomPosItem = () => {
+    if(newPosName && newPosRate) {
+      store.quickAddPOSItem(newPosName, safeNum(newPosRate));
+      setNewPosName('');
+      setNewPosRate('');
+      showToast(`Added ${newPosName} to Bill!`);
+    } else {
+      showToast("Enter Name and Rate first");
+    }
   };
 
 
@@ -200,26 +223,26 @@ export default function HotelForm() {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <EliteInput label="Guest Name" value={store.customerName} onChange={(e:any) => store.setField('customerName', e.target.value)} />
-              <EliteInput label="Phone Number" value={store.customerPhone} onChange={(e:any) => store.setField('customerPhone', e.target.value)} />
-              <div className="md:col-span-2"><EliteInput label="Full Address" value={store.customerAddress} onChange={(e:any) => store.setField('customerAddress', e.target.value)} /></div>
-              <EliteInput label="Nationality" value={store.nationality} onChange={(e:any) => store.setField('nationality', e.target.value)} />
-              <EliteInput label="Vehicle No (Optional)" value={store.vehicleNo} onChange={(e:any) => store.setField('vehicleNo', e.target.value)} />
+              <EliteInput label="Guest Name" value={store.customerName ?? ''} onChange={(e:any) => store.setField('customerName', e.target.value)} />
+              <EliteInput label="Phone Number" value={store.customerPhone ?? ''} onChange={(e:any) => store.setField('customerPhone', e.target.value)} />
+              <div className="md:col-span-2"><EliteInput label="Full Address" value={store.customerAddress ?? ''} onChange={(e:any) => store.setField('customerAddress', e.target.value)} /></div>
+              <EliteInput label="Nationality" value={store.nationality ?? ''} onChange={(e:any) => store.setField('nationality', e.target.value)} />
+              <EliteInput label="Vehicle No (Optional)" value={store.vehicleNo ?? ''} onChange={(e:any) => store.setField('vehicleNo', e.target.value)} />
             </div>
           </div>
 
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
             <div className="border-b border-slate-100 pb-4 mb-5"><h3 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2"><Building size={16} className="text-amber-500"/> Core Allocation & Stay Management</h3></div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
-              <EliteInput label="Invoice Reference" value={store.invoiceNo} onChange={(e:any) => store.setField('invoiceNo', e.target.value)} />
-              <EliteInput type="date" label="Billing Date" value={store.date} onChange={(e:any) => store.setField('date', e.target.value)} />
+              <EliteInput label="Invoice Reference" value={store.invoiceNo ?? ''} onChange={(e:any) => store.setField('invoiceNo', e.target.value)} />
+              <EliteInput type="date" label="Billing Date" value={store.date ?? ''} onChange={(e:any) => store.setField('date', e.target.value)} />
               <div className="relative">
-                <EliteInput label="Room No" value={store.roomNo} onChange={(e:any) => store.setField('roomNo', e.target.value)} />
+                <EliteInput label="Room No" value={store.roomNo ?? ''} onChange={(e:any) => store.setField('roomNo', e.target.value)} />
                 <button onClick={executeAutoRoomGen} className="absolute right-2 top-8 text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-1.5 py-0.5 rounded border">Auto</button>
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Room Category</label>
-                <select className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none text-sm font-bold text-slate-800 h-[42px]" value={store.roomType} onChange={(e) => store.setField('roomType', e.target.value)}>
+                <select className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none text-sm font-bold text-slate-800 h-[42px]" value={store.roomType ?? ''} onChange={(e) => store.setField('roomType', e.target.value)}>
                   <option value="Standard Non-AC">Standard Non-AC</option>
                   <option value="Deluxe AC">Deluxe AC</option>
                   <option value="Super Deluxe">Super Deluxe</option>
@@ -229,32 +252,31 @@ export default function HotelForm() {
               </div>
             </div>
 
-            {/* FLEX WRAPPED RESPONSIVE TIMING LAYOUT BLOCK (PREVENTS INPUT COLLISIONS) */}
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-4">
               <div className="flex flex-col sm:flex-row gap-4 w-full">
                 <div className="flex-1 flex flex-col min-w-0">
                   <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Check-In Config</label>
                   <div className="flex gap-2">
-                    <input type="date" className="flex-1 p-2 border rounded-lg text-xs font-bold bg-white min-w-0" value={store.checkInDate} onChange={(e)=>store.setField('checkInDate', e.target.value)}/>
-                    <input type="time" className="w-24 p-2 border rounded-lg text-xs font-bold bg-white" value={store.checkInTime} onChange={(e)=>store.setField('checkInTime', e.target.value)}/>
+                    <input type="date" className="flex-1 p-2 border rounded-lg text-xs font-bold bg-white min-w-0" value={store.checkInDate ?? ''} onChange={(e)=>store.setField('checkInDate', e.target.value)}/>
+                    <input type="time" className="w-24 p-2 border rounded-lg text-xs font-bold bg-white" value={store.checkInTime ?? ''} onChange={(e)=>store.setField('checkInTime', e.target.value)}/>
                   </div>
                 </div>
                 <div className="flex-1 flex flex-col min-w-0">
                   <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Check-Out Config</label>
                   <div className="flex gap-2">
-                    <input type="date" className="flex-1 p-2 border rounded-lg text-xs font-bold bg-white min-w-0" value={store.checkOutDate} onChange={(e)=>store.setField('checkOutDate', e.target.value)}/>
-                    <input type="time" className="w-24 p-2 border rounded-lg text-xs font-bold bg-white" value={store.checkOutTime} onChange={(e)=>store.setField('checkOutTime', e.target.value)}/>
+                    <input type="date" className="flex-1 p-2 border rounded-lg text-xs font-bold bg-white min-w-0" value={store.checkOutDate ?? ''} onChange={(e)=>store.setField('checkOutDate', e.target.value)}/>
+                    <input type="time" className="w-24 p-2 border rounded-lg text-xs font-bold bg-white" value={store.checkOutTime ?? ''} onChange={(e)=>store.setField('checkOutTime', e.target.value)}/>
                   </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2 border-t border-slate-200">
                 <div className="col-span-2 flex gap-2">
-                  <div className="flex-1"><label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Adults</label><input type="number" className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold" value={store.adults} onChange={(e)=>store.setField('adults', safeNum(e.target.value))}/></div>
-                  <div className="flex-1"><label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Kids</label><input type="number" className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold" value={store.kids} onChange={(e)=>store.setField('kids', safeNum(e.target.value))}/></div>
+                  <div className="flex-1"><label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Adults</label><input type="number" className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold" value={store.adults ?? ''} onChange={(e)=>store.setField('adults', safeNum(e.target.value))}/></div>
+                  <div className="flex-1"><label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Kids</label><input type="number" className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold" value={store.kids ?? ''} onChange={(e)=>store.setField('kids', safeNum(e.target.value))}/></div>
                 </div>
-                <div><label className="block text-[10px] font-bold text-slate-900 uppercase mb-1">Rate / Night (₹)</label><input type="number" className="w-full p-2 bg-amber-50 border border-amber-200 text-slate-900 rounded-lg text-xs font-black" value={store.perDayCharge} onChange={(e)=>store.setField('perDayCharge', safeNum(e.target.value))}/></div>
-                <div><label className="block text-[10px] font-bold text-slate-700 uppercase mb-1">Calculated Nights</label><input type="number" className="w-full p-2 bg-slate-900 text-white rounded-lg text-xs font-black text-center" value={store.noOfDays} readOnly /></div>
+                <div><label className="block text-[10px] font-bold text-slate-900 uppercase mb-1">Rate / Night (₹)</label><input type="number" className="w-full p-2 bg-amber-50 border border-amber-200 text-slate-900 rounded-lg text-xs font-black" value={store.perDayCharge ?? ''} onChange={(e)=>store.setField('perDayCharge', safeNum(e.target.value))}/></div>
+                <div><label className="block text-[10px] font-bold text-slate-700 uppercase mb-1">Calculated Nights</label><input type="number" className="w-full p-2 bg-slate-900 text-white rounded-lg text-xs font-black text-center" value={store.noOfDays ?? ''} readOnly /></div>
               </div>
             </div>
           </div>
@@ -267,17 +289,15 @@ export default function HotelForm() {
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
             <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-4 mb-5"><Wallet size={16} className="text-emerald-500"/> Financial Adjustments</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div><label className="block text-[10px] font-bold text-emerald-700 uppercase tracking-wider mb-1">Advance Paid (₹)</label><input type="number" className="w-full p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg outline-none font-bold text-emerald-800 text-sm" value={store.advancePaid} onChange={(e) => store.setField('advancePaid', safeNum(e.target.value))} /></div>
-              <div><label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Discount Matrix</label><div className="flex bg-slate-50 rounded-lg border border-slate-200 overflow-hidden"><select className="px-3 bg-slate-100 border-r border-slate-200 outline-none font-bold text-xs" value={store.discountType} onChange={(e)=>store.setField('discountType', e.target.value as any)}><option value="FLAT">₹</option><option value="PERCENT">%</option></select><input type="number" className="w-full p-2 outline-none font-bold text-sm" value={store.discount} onChange={(e)=>store.setField('discount', safeNum(e.target.value))}/></div></div>
-              <div><label className="block text-[10px] font-bold text-slate-500 tracking-wider mb-1">Payment Mode</label><select className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-slate-800 text-sm" value={store.paymentMode} onChange={(e) => store.setField('paymentMode', e.target.value)}><option value="CASH">CASH</option><option value="ONLINE">ONLINE / UPI</option><option value="CARD">CARD</option><option value="BILL TO COMPANY">BILL TO COMPANY</option></select></div>
+              <div><label className="block text-[10px] font-bold text-emerald-700 uppercase tracking-wider mb-1">Advance Paid (₹)</label><input type="number" className="w-full p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg outline-none font-bold text-emerald-800 text-sm" value={store.advancePaid ?? ''} onChange={(e) => store.setField('advancePaid', safeNum(e.target.value))} /></div>
+              <div><label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Discount Matrix</label><div className="flex bg-slate-50 rounded-lg border border-slate-200 overflow-hidden"><select className="px-3 bg-slate-100 border-r border-slate-200 outline-none font-bold text-xs" value={store.discountType ?? 'FLAT'} onChange={(e)=>store.setField('discountType', e.target.value as any)}><option value="FLAT">₹</option><option value="PERCENT">%</option></select><input type="number" className="w-full p-2 outline-none font-bold text-sm" value={store.discount ?? ''} onChange={(e)=>store.setField('discount', safeNum(e.target.value))}/></div></div>
+              <div><label className="block text-[10px] font-bold text-slate-500 tracking-wider mb-1">Payment Mode</label><select className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-slate-800 text-sm" value={store.paymentMode ?? 'CASH'} onChange={(e) => store.setField('paymentMode', e.target.value)}><option value="CASH">CASH</option><option value="ONLINE">ONLINE / UPI</option><option value="CARD">CARD</option><option value="BILL TO COMPANY">BILL TO COMPANY</option></select></div>
             </div>
           </div>
 
-          {/* POS ENGINE PANEL INTEGRATED WITH DIRECT CLICKABLE ACCESS QUICK CHIPS */}
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
             <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2 border-b border-slate-100 pb-4 mb-4"><Pizza size={16} className="text-orange-500"/> POS Extras & Split Invoicing</h3>
             
-            {/* CHIPS INTERACTIVE ENGINE ROW */}
             <div className="mb-4">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Quick Click Add Registry:</p>
               <div className="flex flex-wrap gap-2">
@@ -289,6 +309,12 @@ export default function HotelForm() {
               </div>
             </div>
 
+            <div className="mb-5 flex gap-2 items-center bg-slate-50 p-2 border border-slate-200 rounded-xl">
+              <input type="text" placeholder="Item / Service Name" className="flex-1 p-2 rounded bg-white border border-slate-200 text-xs font-medium outline-none" value={newPosName ?? ''} onChange={(e)=>setNewPosName(e.target.value)} />
+              <input type="number" placeholder="Rate ₹" className="w-24 p-2 rounded bg-white border border-slate-200 text-xs font-medium outline-none" value={newPosRate ?? ''} onChange={(e)=>setNewPosRate(e.target.value)} />
+              <button onClick={handleAddCustomPosItem} className="bg-slate-900 text-white px-4 py-2 rounded text-xs font-bold hover:bg-slate-800 transition">Add</button>
+            </div>
+
             <div className="space-y-3">
               {store.extraServices.map((item, idx) => {
                 const handleLocalChange = (val: string) => {
@@ -298,7 +324,7 @@ export default function HotelForm() {
                 return (
                   <div key={item.id} className={`grid grid-cols-12 gap-3 items-center p-2 rounded-lg border transition ${item.selected !== false ? 'bg-slate-50 border-slate-200' : 'bg-slate-100 border-dashed border-slate-200 opacity-50'}`}>
                     <div className="col-span-1 flex justify-center"><input type="checkbox" checked={item.selected !== false} onChange={(e) => store.updateExtraService(item.id, { selected: e.target.checked })} className="w-4 h-4 accent-amber-500 cursor-pointer" title="Include in Grand Total" /></div>
-                    <div className="col-span-4"><input className="w-full p-2 bg-white border border-slate-200 rounded text-xs font-medium" placeholder="Item/Service" value={item.name} onChange={(e) => handleLocalChange(e.target.value)} disabled={item.selected === false} /></div>
+                    <div className="col-span-4"><input className="w-full p-2 bg-white border border-slate-200 rounded text-xs font-medium" placeholder="Item/Service" value={item.name ?? ''} onChange={(e) => handleLocalChange(e.target.value)} disabled={item.selected === false} /></div>
                     <div className="col-span-2"><input type="number" className="w-full p-2 bg-white border border-slate-200 rounded text-center text-xs" placeholder="Qty" value={item.qty || ''} onChange={(e) => store.updateExtraService(item.id, { qty: safeNum(e.target.value) })} disabled={item.selected === false} /></div>
                     <div className="col-span-3 flex items-center bg-white border border-slate-200 rounded px-2"><span className="text-slate-400 text-xs mr-1">₹</span><input type="number" className="w-full py-1.5 outline-none font-bold text-xs" placeholder="Rate" value={item.rate || ''} onChange={(e) => store.updateExtraService(item.id, { rate: safeNum(e.target.value) })} disabled={item.selected === false} /></div>
                     <div className="col-span-2 flex justify-center"><button onClick={() => store.removeExtraService(item.id)} className="text-slate-300 hover:text-red-500 transition"><Trash2 size={16} /></button></div>
@@ -314,6 +340,22 @@ export default function HotelForm() {
       {/* TAB CONTAINER CONTENT: ELITE MASTER SETUP */}
       {activeTab === 'setup' && (
         <div className="space-y-6 animate-in fade-in duration-150">
+          
+          <div className="bg-slate-900 p-5 rounded-2xl shadow-md border border-slate-800">
+            <h3 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2 mb-5"><Building size={16} className="text-amber-400"/> Hotel Brand & Contact Details</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <EliteInput label="Hotel / Property Name" value={store.hotelName ?? ''} onChange={(e:any) => store.setField('hotelName', e.target.value)} />
+              <EliteInput label="GSTIN Number" value={store.hotelGstin ?? ''} onChange={(e:any) => store.setField('hotelGstin', e.target.value)} />
+              <div className="md:col-span-2">
+                <EliteInput label="Full Address" value={store.hotelAddress ?? ''} onChange={(e:any) => store.setField('hotelAddress', e.target.value)} />
+              </div>
+              <EliteInput label="Contact Phone" value={store.hotelPhone ?? ''} onChange={(e:any) => store.setField('hotelPhone', e.target.value)} />
+              <EliteInput label="Support Email" value={store.hotelEmail ?? ''} onChange={(e:any) => store.setField('hotelEmail', e.target.value)} />
+              <EliteInput label="Website Link" value={store.website ?? ''} onChange={(e:any) => store.setField('website', e.target.value)} />
+              <EliteInput label="FSSAI Number" value={store.fssaiNo ?? ''} onChange={(e:any) => store.setField('fssaiNo', e.target.value)} />
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 gap-6">
             <div className="bg-slate-900 p-5 rounded-2xl shadow-md border border-slate-800">
               <h3 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2 mb-5"><ShieldCheck size={16} className="text-amber-400"/> Master UI Canvas Customization</h3>
@@ -321,38 +363,36 @@ export default function HotelForm() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">15 Elite Formats Selector</label>
-                    <select className="w-full p-2.5 bg-slate-800 border border-slate-700 text-white rounded-lg text-xs font-bold outline-none" value={store.selectedTemplate} onChange={(e) => store.setField('selectedTemplate', Number(e.target.value))}><option value={1}>1. 5-Star Luxury Resort</option><option value={2}>2. Premium Corporate</option><option value={3}>3. MMT / Goibibo</option><option value={4}>4. OYO / Budget</option><option value={5}>5. Traditional Palace</option><option value={6}>6. Highway Dhaba</option><option value={7}>7. Boutique Homestay</option><option value={8}>8. Backpacker Hostel</option><option value={9}>9. GST Tax Invoice</option><option value={10}>10. Monthly Rent</option><option value={11}>11. Simple Receipt</option><option value={12}>12. Eco-Resort</option><option value={13}>13. Transit Lounge</option><option value={14}>14. Modern Minimalist</option><option value={15}>15. Custom DIY</option></select>
+                    <select className="w-full p-2.5 bg-slate-800 border border-slate-700 text-white rounded-lg text-xs font-bold outline-none" value={store.selectedTemplate ?? 1} onChange={(e) => store.setField('selectedTemplate', Number(e.target.value))}><option value={1}>1. 5-Star Luxury Resort</option><option value={2}>2. Premium Corporate</option><option value={3}>3. MMT / Goibibo</option><option value={4}>4. OYO / Budget</option><option value={5}>5. Traditional Palace</option><option value={6}>6. Highway Dhaba</option><option value={7}>7. Boutique Homestay</option><option value={8}>8. Backpacker Hostel</option><option value={9}>9. GST Tax Invoice</option><option value={10}>10. Monthly Rent</option><option value={11}>11. Simple Receipt</option><option value={12}>12. Eco-Resort</option><option value={13}>13. Transit Lounge</option><option value={14}>14. Modern Minimalist</option><option value={15}>15. Custom DIY</option></select>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Theme Palette</label>
-                      <select className="w-full p-2.5 bg-slate-800 border border-slate-700 text-white rounded-lg text-xs font-bold outline-none" value={store.themePreset} onChange={(e) => store.applyTheme(e.target.value)}><option value="ROYAL_GOLD">👑 Royal Gold</option><option value="MIDNIGHT_NAVY">🌌 Midnight Navy</option><option value="VINTAGE_SEPIA">📜 Vintage Sepia</option><option value="ELITE_CORPORATE">🏢 Corporate Charcoal</option></select>
+                      <select className="w-full p-2.5 bg-slate-800 border border-slate-700 text-white rounded-lg text-xs font-bold outline-none" value={store.themePreset ?? 'ROYAL_GOLD'} onChange={(e) => store.applyTheme(e.target.value)}><option value="ROYAL_GOLD">👑 Royal Gold</option><option value="MIDNIGHT_NAVY">🌌 Midnight Navy</option><option value="VINTAGE_SEPIA">📜 Vintage Sepia</option><option value="ELITE_CORPORATE">🏢 Corporate Charcoal</option></select>
                     </div>
                     <div>
                       <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 flex items-center gap-0.5"><Palette size={10}/> Custom hex</label>
-                      <input type="color" className="w-full h-[38px] rounded-lg cursor-pointer border-0 bg-slate-800" value={store.themeColor} onChange={(e)=>store.setField('themeColor', e.target.value)} />
+                      <input type="color" className="w-full h-[38px] rounded-lg cursor-pointer border-0 bg-slate-800" value={store.themeColor ?? '#000000'} onChange={(e)=>store.setField('themeColor', e.target.value)} />
                     </div>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <EliteInput label="Header Brand Size" type="number" value={store.hotelNameSize} onChange={(e:any)=>store.setField('hotelNameSize', safeNum(e.target.value))}/>
+                  <EliteInput label="Header Brand Size" type="number" value={store.hotelNameSize ?? ''} onChange={(e:any)=>store.setField('hotelNameSize', safeNum(e.target.value))}/>
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Typography Family</label>
-                    <select className="w-full p-2.5 bg-slate-800 border border-slate-700 text-white rounded-lg text-xs font-bold outline-none" value={store.fontFamily} onChange={(e) => store.setField('fontFamily', e.target.value)}><option value="font-sans">Modern Sans-Serif</option><option value="font-serif">Classic Antiqua Serif</option><option value="font-mono">Monospace Courier Type</option></select>
+                    <select className="w-full p-2.5 bg-slate-800 border border-slate-700 text-white rounded-lg text-xs font-bold outline-none" value={store.fontFamily ?? ''} onChange={(e) => store.setField('fontFamily', e.target.value)}><option value="font-sans">Modern Sans-Serif</option><option value="font-serif">Classic Antiqua Serif</option><option value="font-mono">Monospace Courier Type</option></select>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* POLICY WIDGET CONTAINER */}
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
               <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2 mb-4"><ScrollText size={16} className="text-rose-500"/> Rules, Declarations & Policy Settings</h3>
-              <select className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800" value={store.termsIndex} onChange={(e)=>store.setField('termsIndex', Number(e.target.value))}><option value={0}>Standard Rules (Check-out 11AM, Base non-refundable)</option><option value={1}>Strict Channels (MMT, Goibibo & OYO Rules)</option><option value={2}>Luxury Retreat Policy (Noise limits, Pool waivers)</option><option value={3}>Backpacker Dorm Rules (Self-service hygiene rules)</option><option value={6}>Omit Policies / Clean Blank Slate</option><option value={7}>✍️ CUSTOM BRAND RULES (Manual write down)</option></select>
-              {store.termsIndex === 7 && <textarea rows={4} className="w-full mt-3 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none font-medium" placeholder="Write property policies here (Press enter for parsing line spacing breaks)..." value={store.customTerms} onChange={(e)=>store.setField('customTerms', e.target.value)}></textarea>}
+              <select className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800" value={store.termsIndex ?? 0} onChange={(e)=>store.setField('termsIndex', Number(e.target.value))}><option value={0}>Standard Rules (Check-out 11AM, Base non-refundable)</option><option value={1}>Strict Channels (MMT, Goibibo & OYO Rules)</option><option value={2}>Luxury Retreat Policy (Noise limits, Pool waivers)</option><option value={3}>Backpacker Dorm Rules (Self-service hygiene rules)</option><option value={6}>Omit Policies / Clean Blank Slate</option><option value={7}>✍️ CUSTOM BRAND RULES (Manual write down)</option></select>
+              {store.termsIndex === 7 && <textarea rows={4} className="w-full mt-3 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none font-medium" placeholder="Write property policies here (Press enter for parsing line spacing breaks)..." value={store.customTerms ?? ''} onChange={(e)=>store.setField('customTerms', e.target.value)}></textarea>}
             </div>
 
-            {/* GST ARCHITECTURE TOGGLE WRAPPERS */}
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
               <div className="flex flex-wrap gap-4 mb-4 border-b border-slate-100 pb-3">
                 <label className="flex items-center space-x-2 text-xs font-black text-slate-800 uppercase tracking-wider"><input type="checkbox" checked={store.hasTax} onChange={(e)=>store.setField('hasTax', e.target.checked)} className="accent-slate-900 w-4 h-4"/><span>Apply GST Calculations</span></label>
@@ -361,13 +401,13 @@ export default function HotelForm() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {store.hasTax && (
-                  <><EliteInput label="CGST Rate (%)" type="number" value={store.cgstRate} onChange={(e:any)=>store.setField('cgstRate', safeNum(e.target.value))}/><EliteInput label="SGST Rate (%)" type="number" value={store.sgstRate} onChange={(e:any)=>store.setField('sgstRate', safeNum(e.target.value))}/></>
+                  <><EliteInput label="CGST Rate (%)" type="number" value={store.cgstRate ?? ''} onChange={(e:any)=>store.setField('cgstRate', safeNum(e.target.value))}/><EliteInput label="SGST Rate (%)" type="number" value={store.sgstRate ?? ''} onChange={(e:any)=>store.setField('sgstRate', safeNum(e.target.value))}/></>
                 )}
-                {store.showSac && <EliteInput label="SAC HSN Code" value={store.sacCode} onChange={(e:any)=>store.setField('sacCode', e.target.value)}/>}
+                {store.showSac && <EliteInput label="SAC HSN Code" value={store.sacCode ?? ''} onChange={(e:any)=>store.setField('sacCode', e.target.value)}/>}
               </div>
             </div>
 
-            {/* DIGITAL ASSETS REGISTRIES */}
+            {/* 🟢 LOGO SECTION */}
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
               <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
                 <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2"><ImageIcon size={16} className="text-blue-500"/> Logo Branding Control</h3>
@@ -378,14 +418,34 @@ export default function HotelForm() {
                   <div className="flex flex-col sm:flex-row gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200 items-center">
                     <input type="file" accept="image/*" onChange={(e)=>handleImageUploadRegistry(e, 'logo')} className="w-full text-xs text-slate-500 file:bg-slate-900 file:text-white file:rounded-lg file:text-xs file:px-3 file:py-1.5 file:border-0 file:mr-3 cursor-pointer" />
                     {store.logo && (
-                      <div className="flex gap-1 shrink-0"><button onClick={()=>setActiveSetting(activeSetting==='logo'?null:'logo')} className={`p-2 rounded-lg ${activeSetting==='logo'?'bg-slate-900 text-white':'bg-slate-200 text-slate-700'}`}><Move size={14}/></button><button onClick={()=>store.saveImageToGallery('logo', store.logo!)} className="bg-slate-900 text-white text-xs px-2.5 py-1.5 rounded-lg font-bold"><Check size={12}/></button><button onClick={store.removeLogo} className="bg-red-50 text-red-600 text-xs px-2.5 py-1.5 rounded-lg font-bold">Clear</button></div>
+                      <div className="flex gap-1 shrink-0">
+                        <button onClick={()=>setActiveSetting(activeSetting==='logo'?null:'logo')} className={`p-2 rounded-lg ${activeSetting==='logo'?'bg-slate-900 text-white':'bg-slate-200 text-slate-700'}`}><Move size={14}/></button>
+                        <button onClick={()=>{ store.saveImageToGallery('logo', store.logo!); showToast("Logo Saved"); }} className="bg-slate-900 text-white p-2 rounded-lg" title="Save to Gallery"><Save size={14}/></button>
+                        <button onClick={store.removeLogo} className="bg-red-50 text-red-600 text-xs px-2.5 py-1.5 rounded-lg font-bold">Clear</button>
+                      </div>
                     )}
                   </div>
-                  <InlineAdjuster type="logo" title="Logo Layout Matrix" />
+                  
+                  {/* Logo Gallery */}
+                  {store.customLogos && store.customLogos.length > 0 && (
+                    <div className="flex gap-2 overflow-x-auto p-2 border border-slate-100 bg-slate-50 rounded-lg custom-scrollbar">
+                      {store.customLogos.map((img, i) => (
+                        <div key={i} className="relative shrink-0 group">
+                          <img src={img} onClick={() => store.setField('logo', img)} className="h-10 w-10 object-contain border border-slate-200 bg-white rounded cursor-pointer hover:border-blue-500 transition-all" title="Click to use" />
+                          <button onClick={(e) => { e.stopPropagation(); store.removeImageFromGallery('logo', img); }} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity" title="Delete">
+                            <X size={10}/>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <InlineAdjuster store={store} type="logo" title="Logo Layout Matrix" activeSetting={activeSetting} setActiveSetting={setActiveSetting} />
                 </div>
               )}
             </div>
 
+            {/* 🟢 SIGNATURE SECTION */}
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
               <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4"><h3 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2"><PenTool size={16} className="text-indigo-500"/> Signature Sign Management</h3><label className="flex items-center space-x-1 text-xs font-bold cursor-pointer"><input type="checkbox" checked={store.showSignature} onChange={(e)=>store.setField('showSignature', e.target.checked)} className="w-3.5 h-3.5 accent-slate-900"/><span>Enable Auth Sign</span></label></div>
               {store.showSignature && (
@@ -393,13 +453,125 @@ export default function HotelForm() {
                   <div className="flex flex-col sm:flex-row gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200 items-center">
                     <input type="file" accept="image/*" onChange={(e)=>handleImageUploadRegistry(e, 'signature')} className="w-full text-xs text-slate-500 file:bg-slate-900 file:text-white file:rounded-lg file:text-xs file:px-3 file:py-1.5 file:border-0 file:mr-3 cursor-pointer" />
                     {store.signature && (
-                      <div className="flex gap-1 shrink-0"><button onClick={()=>setActiveSetting(activeSetting==='signature'?null:'signature')} className={`p-2 rounded-lg ${activeSetting==='signature'?'bg-slate-900 text-white':'bg-slate-200 text-slate-700'}`}><Move size={14}/></button><button onClick={()=>store.saveImageToGallery('signature', store.signature!)} className="bg-slate-900 text-white text-xs px-2.5 py-1.5 rounded-lg font-bold"><Check size={12}/></button><button onClick={store.removeSignature} className="bg-red-50 text-red-600 text-xs px-2.5 py-1.5 rounded-lg font-bold">Clear</button></div>
+                      <div className="flex gap-1 shrink-0">
+                        <button onClick={()=>setActiveSetting(activeSetting==='signature'?null:'signature')} className={`p-2 rounded-lg ${activeSetting==='signature'?'bg-slate-900 text-white':'bg-slate-200 text-slate-700'}`}><Move size={14}/></button>
+                        <button onClick={()=>{ store.saveImageToGallery('signature', store.signature!); showToast("Sign Saved"); }} className="bg-slate-900 text-white p-2 rounded-lg" title="Save to Gallery"><Save size={14}/></button>
+                        <button onClick={store.removeSignature} className="bg-red-50 text-red-600 text-xs px-2.5 py-1.5 rounded-lg font-bold">Clear</button>
+                      </div>
                     )}
                   </div>
-                  <InlineAdjuster type="signature" title="Auth Signature Alignment" />
+
+                  {/* Auth Sign Gallery */}
+                  {store.savedSignatures && store.savedSignatures.length > 0 && (
+                    <div className="flex gap-2 overflow-x-auto p-2 border border-slate-100 bg-slate-50 rounded-lg custom-scrollbar">
+                      {store.savedSignatures.map((img, i) => (
+                        <div key={i} className="relative shrink-0 group">
+                          <img src={img} onClick={() => store.setField('signature', img)} className="h-10 w-16 object-contain border border-slate-200 bg-white rounded cursor-pointer hover:border-blue-500 transition-all" title="Click to use" />
+                          <button onClick={(e) => { e.stopPropagation(); store.removeImageFromGallery('signature', img); }} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity" title="Delete">
+                            <X size={10}/>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <InlineAdjuster store={store} type="signature" title="Auth Signature Alignment" activeSetting={activeSetting} setActiveSetting={setActiveSetting} />
                 </div>
               )}
             </div>
+
+            {/* 🟢 GUEST SIGNATURE SECTION */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4"><h3 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2"><PenTool size={16} className="text-indigo-500"/> Guest Signature Management</h3><label className="flex items-center space-x-1 text-xs font-bold cursor-pointer"><input type="checkbox" checked={store.showGuestSignature} onChange={(e)=>store.setField('showGuestSignature', e.target.checked)} className="w-3.5 h-3.5 accent-slate-900"/><span>Enable Guest Sign</span></label></div>
+              {store.showGuestSignature && (
+                <div className="space-y-3">
+                  <div className="flex flex-col sm:flex-row gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200 items-center">
+                    <input type="file" accept="image/*" onChange={(e)=>handleImageUploadRegistry(e, 'guestSignature')} className="w-full text-xs text-slate-500 file:bg-slate-900 file:text-white file:rounded-lg file:text-xs file:px-3 file:py-1.5 file:border-0 file:mr-3 cursor-pointer" />
+                    {store.guestSignature && (
+                      <div className="flex gap-1 shrink-0">
+                        <button onClick={()=>setActiveSetting(activeSetting==='guestSignature'?null:'guestSignature')} className={`p-2 rounded-lg ${activeSetting==='guestSignature'?'bg-slate-900 text-white':'bg-slate-200 text-slate-700'}`}><Move size={14}/></button>
+                        <button onClick={()=>{ store.saveImageToGallery('guestSignature', store.guestSignature!); showToast("Guest Sign Saved"); }} className="bg-slate-900 text-white p-2 rounded-lg" title="Save to Gallery"><Save size={14}/></button>
+                        <button onClick={()=>store.setField('guestSignature', null)} className="bg-red-50 text-red-600 text-xs px-2.5 py-1.5 rounded-lg font-bold">Clear</button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Guest Sign Gallery */}
+                  {store.savedGuestSignatures && store.savedGuestSignatures.length > 0 && (
+                    <div className="flex gap-2 overflow-x-auto p-2 border border-slate-100 bg-slate-50 rounded-lg custom-scrollbar">
+                      {store.savedGuestSignatures.map((img, i) => (
+                        <div key={i} className="relative shrink-0 group">
+                          <img src={img} onClick={() => store.setField('guestSignature', img)} className="h-10 w-16 object-contain border border-slate-200 bg-white rounded cursor-pointer hover:border-blue-500 transition-all" title="Click to use" />
+                          <button onClick={(e) => { e.stopPropagation(); store.removeImageFromGallery('guestSignature', img); }} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity" title="Delete">
+                            <X size={10}/>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <InlineAdjuster store={store} type="guestSignature" title="Guest Signature Alignment" activeSetting={activeSetting} setActiveSetting={setActiveSetting} />
+                </div>
+              )}
+            </div>
+
+            {/* 🟢 STAMP SECTION */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
+                <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2"><Stamp size={16} className="text-rose-500"/> Official Stamp / Seal</h3>
+                <label className="flex items-center space-x-1 text-xs font-bold cursor-pointer"><input type="checkbox" checked={store.showStamp} onChange={(e)=>store.setField('showStamp', e.target.checked)} className="w-3.5 h-3.5 accent-slate-900"/><span>Enable Stamp</span></label>
+              </div>
+              {store.showStamp && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Inbuilt Text Stamp</label>
+                      <select className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-xs font-bold outline-none" value={store.stampType ?? 'MUHAR'} onChange={(e) => store.setField('stampType', e.target.value as any)}>
+                        <option value="MUHAR">MUHAR (Round)</option>
+                        <option value="PAID">PAID (Rect)</option>
+                        <option value="DUE">DUE (Rect)</option>
+                        <option value="CANCELLED">CANCELLED (Rect)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Stamp Color</label>
+                      <input type="color" className="w-full h-[38px] rounded-lg cursor-pointer border-0 bg-white" value={store.stampColor ?? '#1e3a8a'} onChange={(e)=>store.setField('stampColor', e.target.value)} />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 pl-1">Or Upload Custom Stamp Image</label>
+                    <div className="flex flex-col sm:flex-row gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200 items-center">
+                      <input type="file" accept="image/*" onChange={(e)=>handleImageUploadRegistry(e, 'stamp')} className="w-full text-xs text-slate-500 file:bg-slate-900 file:text-white file:rounded-lg file:text-xs file:px-3 file:py-1.5 file:border-0 file:mr-3 cursor-pointer" />
+                      {store.stamp && (
+                        <div className="flex gap-1 shrink-0">
+                          <button onClick={()=>setActiveSetting(activeSetting==='stamp'?null:'stamp')} className={`p-2 rounded-lg ${activeSetting==='stamp'?'bg-slate-900 text-white':'bg-slate-200 text-slate-700'}`}><Move size={14}/></button>
+                          <button onClick={()=>{ store.saveImageToGallery('stamp', store.stamp!); showToast("Stamp Saved"); }} className="bg-slate-900 text-white p-2 rounded-lg" title="Save to Gallery"><Save size={14}/></button>
+                          <button onClick={()=>store.setField('stamp', null)} className="bg-red-50 text-red-600 text-xs px-2.5 py-1.5 rounded-lg font-bold">Clear</button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Stamp Gallery */}
+                    {store.savedStamps && store.savedStamps.length > 0 && (
+                      <div className="flex gap-2 overflow-x-auto p-2 border border-slate-100 bg-slate-50 rounded-lg custom-scrollbar mt-2">
+                        {store.savedStamps.map((img, i) => (
+                          <div key={i} className="relative shrink-0 group">
+                            <img src={img} onClick={() => store.setField('stamp', img)} className="h-10 w-10 object-contain border border-slate-200 bg-white rounded cursor-pointer hover:border-blue-500 transition-all" title="Click to use" />
+                            <button onClick={(e) => { e.stopPropagation(); store.removeImageFromGallery('stamp', img); }} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity" title="Delete">
+                              <X size={10}/>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                  </div>
+                  <InlineAdjuster store={store} type="stamp" title="Stamp Placement" activeSetting={activeSetting} setActiveSetting={setActiveSetting} />
+                </div>
+              )}
+            </div>
+            
           </div>
         </div>
       )}
