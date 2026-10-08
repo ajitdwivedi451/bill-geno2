@@ -276,7 +276,7 @@ export default function HotelForm() {
                   <div className="flex-1"><label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Kids</label><input type="number" className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold" value={store.kids ?? ''} onChange={(e)=>store.setField('kids', safeNum(e.target.value))}/></div>
                 </div>
                 <div><label className="block text-[10px] font-bold text-slate-900 uppercase mb-1">Rate / Night (₹)</label><input type="number" className="w-full p-2 bg-amber-50 border border-amber-200 text-slate-900 rounded-lg text-xs font-black" value={store.perDayCharge ?? ''} onChange={(e)=>store.setField('perDayCharge', safeNum(e.target.value))}/></div>
-                <div><label className="block text-[10px] font-bold text-slate-700 uppercase mb-1">Calculated Nights</label><input type="number" className="w-full p-2 bg-slate-900 text-white rounded-lg text-xs font-black text-center" value={store.noOfDays ?? ''} readOnly /></div>
+                <div><label className="block text-[10px] font-bold text-slate-700 uppercase mb-1">Calculated Nights</label><input type="number" className="w-full p-2 bg-slate-900 text-white rounded-lg text-xs font-black text-center" value={store.noOfDays ?? ''} onChange={(e)=>store.setField('noOfDays', safeNum(e.target.value))} /></div>
               </div>
             </div>
           </div>
@@ -363,7 +363,7 @@ export default function HotelForm() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">15 Elite Formats Selector</label>
-                    <select className="w-full p-2.5 bg-slate-800 border border-slate-700 text-white rounded-lg text-xs font-bold outline-none" value={store.selectedTemplate ?? 1} onChange={(e) => store.setField('selectedTemplate', Number(e.target.value))}><option value={1}>1. 5-Star Luxury Resort</option><option value={2}>2. Premium Corporate</option><option value={3}>3. MMT / Goibibo</option><option value={4}>4. OYO / Budget</option><option value={5}>5. Traditional Palace</option><option value={6}>6. Highway Dhaba</option><option value={7}>7. Boutique Homestay</option><option value={8}>8. Backpacker Hostel</option><option value={9}>9. GST Tax Invoice</option><option value={10}>10. Monthly Rent</option><option value={11}>11. Simple Receipt</option><option value={12}>12. Eco-Resort</option><option value={13}>13. Transit Lounge</option><option value={14}>14. Modern Minimalist</option><option value={15}>15. Custom DIY</option></select>
+                    <select className="w-full p-2.5 bg-slate-800 border border-slate-700 text-white rounded-lg text-xs font-bold outline-none" value={store.selectedTemplate ?? 1} onChange={(e) => store.setField('selectedTemplate', Number(e.target.value))}><option value={1}>1. 5-Star Luxury Resort</option><option value={2}>2. Premium Corporate</option><option value={3}>3. MMT / Goibibo</option><option value={4}>4. OYO / Budget</option><option value={5}>5. Traditional Palace</option><option value={6}>6. Highway Dhaba</option><option value={7}>7. Boutique Homestay</option><option value={8}>8. Backpacker Hostel</option><option value={9}>9. GST Tax Invoice</option><option value={10}>10. Monthly Rent</option><option value={11}>11. Simple Receipt</option><option value={12}>12. Eco-Resort</option><option value={13}>13. Transit Lounge</option><option value={14}>14. Modern Minimalist</option><option value={15}>15. Custom DIY</option><option value={16}>16. Hotel Lime Tree</option></select>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
@@ -387,10 +387,16 @@ export default function HotelForm() {
               </div>
             </div>
 
+            
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
               <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2 mb-4"><ScrollText size={16} className="text-rose-500"/> Rules, Declarations & Policy Settings</h3>
               <select className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800" value={store.termsIndex ?? 0} onChange={(e)=>store.setField('termsIndex', Number(e.target.value))}><option value={0}>Standard Rules (Check-out 11AM, Base non-refundable)</option><option value={1}>Strict Channels (MMT, Goibibo & OYO Rules)</option><option value={2}>Luxury Retreat Policy (Noise limits, Pool waivers)</option><option value={3}>Backpacker Dorm Rules (Self-service hygiene rules)</option><option value={6}>Omit Policies / Clean Blank Slate</option><option value={7}>✍️ CUSTOM BRAND RULES (Manual write down)</option></select>
               {store.termsIndex === 7 && <textarea rows={4} className="w-full mt-3 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none font-medium" placeholder="Write property policies here (Press enter for parsing line spacing breaks)..." value={store.customTerms ?? ''} onChange={(e)=>store.setField('customTerms', e.target.value)}></textarea>}
+              
+              {/* 🟢 FIXED: Jurisdiction City / Location Input Box */}
+              <div className="mt-4 pt-2 border-t border-slate-100">
+                <EliteInput label="Jurisdiction City / Stamp Location" value={store.jurisdictionCity ?? ''} onChange={(e:any) => store.setField('jurisdictionCity', e.target.value)} />
+              </div>
             </div>
 
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">

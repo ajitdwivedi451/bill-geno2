@@ -197,8 +197,9 @@ export default function HotelPreview() {
       {/* 🟢 HIDDEN 100% QUALITY RENDER TARGET (What the PDF/Image engine sees) 
           Placed far off-screen so it doesn't mess with UI, but remains fully rendered.
       */}
-      <div className="absolute top-[-9999px] left-[-9999px] bg-white" style={{ width: `${baseWidth}px`, minHeight: `${baseMinHeight}px` }}>
-        <div ref={printRef} className="w-full h-fit">
+      {/* 🟢 FIX: Added 'flex flex-col' so the inner template can stretch to the absolute bottom */}
+      <div className="absolute top-[-9999px] left-[-9999px] bg-white flex flex-col" style={{ width: `${baseWidth}px`, minHeight: `${baseMinHeight}px` }}>
+        <div ref={printRef} className="w-full flex-1 flex flex-col">
           <TemplateEngine data={store} />
         </div>
       </div>

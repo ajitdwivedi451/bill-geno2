@@ -204,7 +204,7 @@ export function RestaurantPreview() {
             <DashedLine />
             <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Bill No: {data.receiptNo}</span><span>{fmtDate} {data.time}</span></div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Table: {data.tableNo}</span><span>Pax: {data.pax}</span></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Waiter: {data.waiterName}</span><span>Type: {data.orderType}</span></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Biller: {data.waiterName}</span><span>Type: {data.orderType}</span></div>
             {data.customerName && data.customerName !== 'Walk-in Guest' && <div>Cust: {data.customerName} {data.customerPhone}</div>}
             <DashedLine />
             <div style={{ display: 'flex', fontWeight: 'bold' }}><span style={{ width: '50%' }}>Item</span><span style={{ width: '15%', textAlign: 'center' }}>Qty</span><span style={{ width: '15%', textAlign: 'right' }}>Rate</span><span style={{ width: '20%', textAlign: 'right' }}>Amt</span></div>

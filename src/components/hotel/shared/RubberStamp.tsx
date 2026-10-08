@@ -78,7 +78,7 @@ export const RubberStamp = ({ data }: { data: Partial<HotelBillState> }) => {
           
           {/* 3. CENTER TEXT: Paid */}
           <text x="100" y="105" textAnchor="middle" fill={data.stampColor} fontWeight="900" fontSize="18">
-            ★ PAID ★
+            PAID
           </text>
         </svg>
       ) : (
