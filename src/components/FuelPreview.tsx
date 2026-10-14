@@ -333,7 +333,7 @@ export function FuelPreview() {
       const exactWidth = printRef.current.offsetWidth;
       const exactHeight = printRef.current.offsetHeight;
 
-      const dataUrl = await toPng(printRef.current, { backgroundColor: '#ffffff', pixelRatio: 3 });
+      const dataUrl = await toPng(printRef.current, { backgroundColor: '#ffffff', pixelRatio: 4 });
       
       const iframe = document.createElement('iframe');
       iframe.style.position = 'fixed';
@@ -353,7 +353,7 @@ export function FuelPreview() {
           <head>
             <style>
               body, html { margin: 0; padding: 0; display: flex; justify-content: flex-start; align-items: flex-start; background: white; }
-              img { width: ${exactWidth}px; height: ${exactHeight}px; display: block; image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; }
+              img { width: ${exactWidth}px; height: ${exactHeight}px; display: block; image-rendering: auto; }
               @page { margin: 0; size: ${exactWidth}px ${exactHeight}px; } 
             </style>
           </head>
